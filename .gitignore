@@ -1,0 +1,47 @@
+# Binaries
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+*.prof
+
+# Go
+/vendor/
+.go-build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local config — never commit credentials
+.env
+.env.local
+*.local.yaml
+servers.yml
+clients.yml
+/audit/
+/.local/
+
+# Coverage
+coverage.out
+coverage.txt
+*.cover
+
+# nox security scanner
+/.nox/
+findings.json
+nox-findings.json
+ai.inventory.json
+
+# Go fuzz corpora (local seeds only; CI-generated)
+**/testdata/fuzz/
+
+# Claude Code session state
+.claude/settings.local.json

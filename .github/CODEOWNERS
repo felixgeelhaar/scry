@@ -1,0 +1,10 @@
+# Default owner for everything in this repo.
+*       @felixgeelhaar
+
+# Security-sensitive paths get an extra explicit owner stamp so PRs
+# touching them trip the protected-review path on GitHub.
+/internal/auth/      @felixgeelhaar
+/internal/gate/      @felixgeelhaar
+/security/           @felixgeelhaar
+/SECURITY.md         @felixgeelhaar
+/.github/workflows/  @felixgeelhaar

@@ -1,0 +1,50 @@
+# nox configuration. Replaces Dependabot as the security/vuln gate.
+#
+# Schema reference: https://github.com/nox-hq/nox
+
+scan:
+  exclude:
+    # nox's own state — do not scan its findings cache.
+    # Classification: Acceptable Pattern
+    # Last reviewed: 2026-05-17
+    - .nox/
+    - findings.json
+    - nox-findings.json
+    - ai.inventory.json
+    # Workflow YAML files contain pinned SHA digests that the generic
+    # secret detector flags as API keys (SEC-659/697).
+    # Classification: False Positive
+    # Last reviewed: 2026-05-17
+    - .github/workflows/*.yml
+    # Test fixtures embed placeholder bearer tokens to exercise the
+    # token-redaction code path. They are not real credentials.
+    # Classification: Acceptable Pattern
+    # Last reviewed: 2026-05-17
+    - internal/obs/log_test.go
+    - internal/auth/store_test.go
+    - internal/auth/resolve_test.go
+    - internal/auth/clients_test.go
+    - internal/upstream/client_test.go
+    - internal/server/authz_test.go
+    - internal/server/tool_filter_test.go
+    # SDL fixtures in schema tests contain GraphQL type names that look
+    # like keys to the generic regex.
+    # Classification: False Positive
+    # Last reviewed: 2026-05-17
+    - internal/schema/sdl_test.go
+    # operator-facing docs include reference token strings (env://,
+    # op://) as examples.
+    # Classification: Acceptable Pattern
+    # Last reviewed: 2026-05-17
+    - docs/auth-design.md
+    - docs/schema-index.md
+    - README.md
+
+plugins:
+  # Auto-install on `nox scan` unless --no-auto-install is set. CI
+  # mirrors this in .github/workflows/security.yml.
+  required:
+    # LLM-powered finding triage: prioritises real findings and
+    # downranks likely false positives. Local-first via Ollama when
+    # reachable; graceful fallback otherwise.
+    - nox/triage-agent@^0.2.0

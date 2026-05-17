@@ -1,0 +1,91 @@
+name: Security
+
+# Replaces Dependabot. nox scans every push + PR + nightly so newly
+# disclosed CVEs surface within ~24h. The build fails only on
+# critical findings that are not waived in security/vex.json
+# (OpenVEX); everything below critical is uploaded as an artifact
+# for triage in the Security tab.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nox-scan:
+    name: nox scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+
+      - name: Install nox
+        env:
+          # Pinned. Bump deliberately after reviewing release notes at
+          # https://github.com/nox-hq/nox/releases.
+          NOX_VERSION: "0.9.5"
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/nox" version
+
+      - name: Scan
+        # nox exits non-zero whenever findings exist; treat the raw
+        # scan as informational and let the critical-gate step decide
+        # whether to fail the build.
+        run: nox scan . || true
+
+      - name: Critical gate
+        run: python3 scripts/sec-gate.py
+
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nox-findings
+          path: findings.json
+          retention-days: 30
+
+      - name: Summarise
+        if: always()
+        run: |
+          if [ -f findings.json ]; then
+            python3 <<'PY'
+          import json
+          from collections import Counter
+          d = json.load(open("findings.json"))
+          findings = d.get("findings", []) if isinstance(d, dict) else d
+          by_sev = Counter(f["Severity"] for f in findings)
+          by_rule = Counter(f["RuleID"] for f in findings)
+          print(f"Total: {len(findings)}")
+          print("By severity:", dict(by_sev))
+          print("Top rules:")
+          for rule, n in by_rule.most_common(10):
+              print(f"  {rule}: {n}")
+          PY
+          fi
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.4.0
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...

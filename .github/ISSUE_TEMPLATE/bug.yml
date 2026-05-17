@@ -1,0 +1,79 @@
+name: Bug report
+description: Something doesn't behave the way the docs say it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence — what's broken.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: |
+        Exact steps. Include the `scry` command(s), upstream URL or
+        SDL fixture, env vars (token values redacted), and what you
+        observed.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: scry version
+      placeholder: "output of `scry version`"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: "macOS 26.4 arm64 / Linux x86_64 / Docker / Kubernetes"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport
+      options:
+        - stdio
+        - http
+        - grpc
+        - websocket
+        - not relevant
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traces
+      description: |
+        Run with `SCRY_LOG=console SCRY_LOG_LEVEL=debug` and paste
+        the relevant stderr. **Redact any bearer tokens** before
+        pasting.
+      render: shell
+
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security
+      options:
+        - label: I have not pasted any real bearer tokens in this issue.
+          required: true
+        - label: This is NOT a security-sensitive report (those go to security@felixgeelhaar.dev per SECURITY.md).
+          required: true
