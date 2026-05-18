@@ -6,6 +6,83 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.2.0 - 2026-05-18
+
+### Added
+
+- **Custom auth headers** — `auth.header_name` + `auth.scheme` per
+  server. Empty scheme = raw credential, no prefix. Unblocks
+  upstreams that don't speak OAuth 2.0 Bearer (`X-API-Key`,
+  `Token <T>`, custom shapes). Hot reload swaps headers + scheme
+  atomically alongside token rotation.
+- **Per-server rate limiting** — `rate_limit.{rps, burst}` per
+  server, layered onto the fortify chain as a token-bucket gate.
+  Rejected calls fail closed with `ErrRateLimited` before
+  reaching the upstream; `query_execute` maps that to a
+  `rate_limited` envelope with `retry_after` hint.
+- **Audit log rotation** — `--audit-max-size` (50 MiB default) +
+  `--audit-keep` (5 default). Per-session JSONL files shift
+  archives on rollover (`<session>.jsonl.1` … `.N`); chain hashes
+  link forward across files. `keep=0` retains all archives for
+  compliance workloads.
+- **`scry doctor`** diagnostic CLI. Probes servers.yml /
+  clients.yml / audit dir / OTel exporter / per-upstream
+  reachability. One-line verdict per check; exit code != 0 lists
+  the failing checks. Replaces the v0.1 "figure out why scry
+  isn't working" guessing.
+- **`keychain://service/key`** token-ref scheme via
+  99designs/keyring. macOS Keychain, libsecret on Linux, KWallet,
+  Windows credential manager. Headless systems get an actionable
+  fallback message pointing at `file://` / `env://`.
+- **Race-stress harness** — build-tagged `stress` test that
+  hammers hot-reload + Gate.Record + concurrent `Get` under
+  `-race`. Nightly CI workflow (`.github/workflows/stress.yml`)
+  runs it on `main` so locking regressions surface within 24h.
+- **Deployment manifests** — `Dockerfile` (multi-stage,
+  distroless, nonroot), `deploy/systemd/scry.service` (hardened
+  with PrivateTmp / ProtectSystem=strict / dropped capabilities),
+  `deploy/k8s/*` (namespace + ConfigMap + Secret + PVC +
+  Deployment + Service + HPA, `scry doctor` as startup probe).
+  Docs: `docs/deployment/{docker,systemd,kubernetes}.md`.
+
+### Changed
+
+- `upstream.Client.SetAuth` now takes an `AuthSpec` carrying
+  header + scheme + token-fn together so all three rotate
+  atomically.
+- `runtime.AddConfig` + `runtime.Entry` carry the resolved auth
+  header / scheme + per-server rate-limit config; `Replace`'s
+  diff covers header / scheme / rate-limit changes in addition
+  to token rotation.
+- `gate.Policy` gains `AuditMaxSize` + `AuditKeep` for rotation
+  control.
+- `upstream.AuthError` renamed to `upstream.ErrAuthExpired` to
+  match Go's `Err*` convention.
+- `obs.Metrics()` now returns the exported `ScryMeters` type;
+  reset helper renamed to `ResetMetersForTest`.
+- `scry version` reports ldflags-stamped Version / Commit / Date.
+
+### Fixed
+
+- Lint sweep across the codebase against `golangci-lint v2.11`:
+  gofmt drift, error-naming conventions, deprecated
+  `gqlparser.LoadQuery` → `LoadQueryWithRules`, fortify
+  HTTPClient roundtripper false-positive bodyclose suppression
+  with documented rationale.
+- `cmd/scry` exit paths now delegate via `run() int` so deferred
+  tracer + meter shutdown always runs before process exit. Last
+  span / metric batch flushes on flag-validation errors.
+
+### Filed upstream
+
+- mcp-go [#92](https://github.com/felixgeelhaar/mcp-go/pull/92):
+  `ToolFilter` middleware for identity-aware tools/list
+  filtering. Closes mcp-go #90. Internal wrapper in scry
+  (`internal/server/tool_filter.go`) stays until the PR merges +
+  releases — swap in a v0.2.x patch.
+
+## 0.1.0 - 2026-05-18
+
 ### Added
 
 - Initial scry implementation: searchable GraphQL ↔ MCP bridge for
