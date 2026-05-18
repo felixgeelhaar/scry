@@ -141,6 +141,16 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			}
 
 			res, err := entry.Client.Execute(ctx, in.Query, in.Variables, in.OperationName)
+			if errors.Is(err, upstream.ErrRateLimited) {
+				ev.Str("outcome", "rate_limited").Dur("dur", time.Since(start)).Send()
+				recordOutcome("rate_limited", entry.Name, complexity)
+				return renderExecuteError("rate_limited",
+					fmt.Sprintf("scry's per-server rate limit for %q rejected this request — back off and retry", entry.Name),
+					map[string]any{
+						"server":      entry.Name,
+						"retry_after": "1s",
+					}), nil
+			}
 			if errors.Is(err, upstream.ErrAuthExpired) {
 				ev.Str("outcome", "auth_expired").Int("status", statusOf(res)).Dur("dur", time.Since(start)).Send()
 				recordOutcome("auth_expired", entry.Name, complexity)

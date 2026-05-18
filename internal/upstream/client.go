@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/felixgeelhaar/fortify/middleware"
+	"github.com/felixgeelhaar/fortify/ratelimit"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -69,6 +70,17 @@ type Config struct {
 	Timeout time.Duration
 	// MaxRetries bounds attempts. Default 3.
 	MaxRetries int
+	// RateLimit caps RPS to this upstream via a token bucket. Zero
+	// disables. Burst defaults to RPS rounded up when omitted.
+	RateLimit RateLimitConfig
+}
+
+// RateLimitConfig configures the per-client token-bucket gate.
+// Mirrors auth.RateLimit but lives here so the upstream package
+// doesn't need to depend on auth.
+type RateLimitConfig struct {
+	RPS   float64
+	Burst int
 }
 
 // New constructs a Client. Returns an error if the fortify chain
@@ -95,6 +107,21 @@ func New(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("upstream: build fortify chain: %w", err)
 	}
 	rt := middleware.HTTPRoundTripperFromChain(http.DefaultTransport, chain)
+	if cfg.RateLimit.RPS > 0 {
+		burst := cfg.RateLimit.Burst
+		if burst <= 0 {
+			burst = int(cfg.RateLimit.RPS)
+			if burst < 1 {
+				burst = 1
+			}
+		}
+		lim := ratelimit.New(ratelimit.Config{
+			Rate:     int(cfg.RateLimit.RPS),
+			Burst:    burst,
+			Interval: time.Second,
+		})
+		rt = &rateLimitedTransport{inner: rt, lim: lim, endpoint: cfg.Endpoint}
+	}
 	c := &Client{
 		endpoint: cfg.Endpoint,
 		http:     &http.Client{Transport: rt, Timeout: cfg.Timeout},
@@ -126,6 +153,33 @@ type Result struct {
 // Carries through to the MCP tool so the agent can call auth_login
 // per the auth-design.md recovery loop.
 var ErrAuthExpired = errors.New("upstream: auth expired")
+
+// ErrRateLimited is returned when scry's per-server rate limiter
+// rejects a request before it leaves the process. Distinct from
+// upstream 429s — the upstream never saw this call. Agents that
+// see it should back off (the envelope hint includes a retry-after
+// suggestion) instead of retrying immediately.
+var ErrRateLimited = errors.New("upstream: rate limited")
+
+// rateLimitedTransport gates outbound requests through a token
+// bucket. When Allow returns false, fail closed with ErrRateLimited
+// — no upstream call, no timer eaten — so the caller can surface
+// the back-pressure to the agent before retrying.
+type rateLimitedTransport struct {
+	inner    http.RoundTripper
+	lim      ratelimit.RateLimiter
+	endpoint string
+}
+
+func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Key by endpoint so multiple Clients sharing this transport
+	// path (today: one per upstream) stay isolated. Single-endpoint
+	// Clients still benefit because the key is stable across calls.
+	if !t.lim.Allow(req.Context(), t.endpoint) {
+		return nil, ErrRateLimited
+	}
+	return t.inner.RoundTrip(req)
+}
 
 // Execute POSTs `query` (plus optional variables and operationName)
 // to the configured endpoint. Returns the upstream's raw response.

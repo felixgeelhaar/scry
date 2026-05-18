@@ -174,6 +174,9 @@ type AddConfig struct {
 	// introspection query. Hot reload re-loads the SDL when the
 	// path changes (same diff machinery as upstream URL change).
 	SDLPath string
+	// RateLimit caps RPS scry sends to this upstream. Mapped 1:1
+	// from auth.Server.RateLimit. Zero values disable the gate.
+	RateLimit upstream.RateLimitConfig
 }
 
 // Add wires one upstream: opens its store, builds its fortify
@@ -194,8 +197,9 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 
 	authSpec := buildAuthSpec(ac)
 	client, err := upstream.New(upstream.Config{
-		Endpoint: ac.Upstream,
-		Auth:     authSpec,
+		Endpoint:  ac.Upstream,
+		Auth:      authSpec,
+		RateLimit: ac.RateLimit,
 	})
 	if err != nil {
 		_ = store.Close()
@@ -235,6 +239,10 @@ func addConfigFromServer(name string, srv auth.Server) AddConfig {
 		AuthHeader: srv.Auth.HeaderName,
 		AuthScheme: srv.Auth.Scheme,
 		SDLPath:    srv.SDLPath,
+		RateLimit: upstream.RateLimitConfig{
+			RPS:   srv.RateLimit.RPS,
+			Burst: srv.RateLimit.Burst,
+		},
 	}
 }
 

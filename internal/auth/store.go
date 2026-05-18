@@ -37,6 +37,19 @@ type Server struct {
 	// Right for upstreams that disable introspection or sit behind
 	// a CDN that rejects the standard query at any depth.
 	SDLPath string `yaml:"sdl_path,omitempty"`
+	// RateLimit caps the requests scry sends to this upstream.
+	// Token bucket: Rate refilled per second; Burst is the bucket
+	// size. Zero values disable the gate.
+	RateLimit RateLimit `yaml:"rate_limit,omitempty"`
+}
+
+// RateLimit configures a per-server token-bucket gate. Zero values
+// disable. Burst defaults to Rate when omitted so operators can write
+// `rate_limit: { rps: 5 }` and get sane bursting behaviour without
+// thinking about it.
+type RateLimit struct {
+	RPS   float64 `yaml:"rps,omitempty"`
+	Burst int     `yaml:"burst,omitempty"`
 }
 
 // Auth is the credential block. Token is the only payload v0 cares
