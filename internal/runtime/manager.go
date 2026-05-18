@@ -24,6 +24,7 @@ import (
 	"github.com/felixgeelhaar/scry/internal/auth"
 	"github.com/felixgeelhaar/scry/internal/cache"
 	"github.com/felixgeelhaar/scry/internal/obs"
+	"github.com/felixgeelhaar/scry/internal/pq"
 	"github.com/felixgeelhaar/scry/internal/schema"
 	"github.com/felixgeelhaar/scry/internal/upstream"
 )
@@ -47,6 +48,10 @@ type Entry struct {
 	// is disabled (TTL=0); query_execute checks for nil before
 	// dispatching.
 	Cache *cache.Cache
+	// PQ holds the operator-registered persisted-query map for
+	// this upstream. Always non-nil; the file is opened during
+	// Add.
+	PQ *pq.Store
 	// AuthRef is the *reference* used to resolve the upstream
 	// token at request time, kept for logs / status. Never holds
 	// the resolved secret itself.
@@ -108,6 +113,11 @@ func (m *Manager) Close() error {
 	for _, e := range m.entries {
 		if err := e.Store.Close(); err != nil && firstErr == nil {
 			firstErr = err
+		}
+		if e.PQ != nil {
+			if err := e.PQ.Close(); err != nil && firstErr == nil {
+				firstErr = err
+			}
 		}
 	}
 	m.entries = nil
@@ -204,6 +214,11 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 	if err != nil {
 		return fmt.Errorf("runtime: open store for %q: %w", ac.Name, err)
 	}
+	pqStore, err := pq.OpenStore(filepath.Join(m.IndexDir, safeIndexName(ac.Name)+".pq.db"))
+	if err != nil {
+		_ = store.Close()
+		return fmt.Errorf("runtime: open pq store for %q: %w", ac.Name, err)
+	}
 
 	authSpec := buildAuthSpec(ac)
 	client, err := upstream.New(upstream.Config{
@@ -221,6 +236,7 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		Upstream:   ac.Upstream,
 		Store:      store,
 		Client:     client,
+		PQ:         pqStore,
 		AuthRef:    ac.AuthRef,
 		AuthHeader: ac.AuthHeader,
 		AuthScheme: ac.AuthScheme,
@@ -420,6 +436,9 @@ func (m *Manager) removeUnsafe(name string) {
 		return
 	}
 	_ = e.Store.Close()
+	if e.PQ != nil {
+		_ = e.PQ.Close()
+	}
 	delete(m.entries, name)
 }
 

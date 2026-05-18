@@ -83,6 +83,8 @@ func run() int {
 		return 0
 	case "doctor":
 		return runDoctor(os.Args[2:])
+	case "pq":
+		return runPQ(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Printf("scry %s\ncommit %s\nbuilt %s\n", version.Version, version.Commit, version.Date)
 		return 0
