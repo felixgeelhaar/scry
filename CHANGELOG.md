@@ -6,6 +6,47 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.5.0 - 2026-05-18
+
+### Added
+
+- **Server-package test coverage uplift (33% → 63.8%)** — internal/server
+  was the lowest-coverage package. v0.5 adds direct-handler-invocation
+  tests driving the registered MCP tools through their internal
+  closures, with httptest upstreams and in-memory runtime fixtures.
+  - `query_execute_test.go` — 11 cases covering envelope outcomes:
+    invalid_query, cost_exceeded, budget_exceeded, auth_expired,
+    upstream_error, pq_conflict, pq_not_found, permission_denied
+    (read-only identity), unknown_server (multi-server manager), the
+    happy path, and the cached path.
+  - `schema_tools_test.go` — 15 cases covering schema_search (empty,
+    populated, subgraph column rendering), schema_get (hit + not_found),
+    query_validate (ok + errors), query_cost (ok + errors), schema_diff
+    (no_diff envelope + populated payload), and resolveServer routing
+    across single-default / multi-no-name / multi-known / multi-unknown.
+
+- **End-to-end mutation test** — `mutation_test.go` stands up an
+  httptest upstream exposing a Mutation root with a side-effecting
+  `incrementCounter`, then drives query_execute through the full
+  path: validate → cost → gate write budget → upstream POST → audit
+  record. Asserts the three spec guarantees: mutations bypass the
+  cache, write counter increments only on outcome=ok, and chain
+  Evidence carries `Effect=write`. Documents the lack of a stable
+  public mutable GraphQL endpoint so future contributors don't
+  reinvent the search.
+
+### Quality
+
+- `internal/server` coverage: 33% → 63.8% (clears the 60% target).
+- 30 new tests, all in-process + deterministic (no network).
+
+### Deferred (still)
+
+- **mcp-go ToolFilter merge** to a future cycle — upstream PR
+  remains closed-unmerged; deferred from v0.3 → v0.4 → v0.5.
+- **mTLS identity propagation** — still blocked on mcp-go
+  [#93](https://github.com/felixgeelhaar/mcp-go/issues/93).
+
 ## 0.4.0 - 2026-05-18
 
 ### Added
