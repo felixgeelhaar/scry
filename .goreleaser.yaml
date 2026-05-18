@@ -38,7 +38,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Tag }}-next"
 
 changelog:
   sort: asc
@@ -62,6 +62,10 @@ release:
 # .github/workflows/release.yml.
 brews:
   - name: scry
+    # Skip the brew formula push when HOMEBREW_TAP_TOKEN isn't
+    # configured (first release before the operator wires the PAT).
+    # Keeps `goreleaser release` from failing on a missing secret.
+    skip_upload: '{{ if eq (envOrDefault "HOMEBREW_TAP_TOKEN" "") "" }}true{{ else }}false{{ end }}'
     repository:
       owner: felixgeelhaar
       name: homebrew-tap
