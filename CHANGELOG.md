@@ -6,6 +6,46 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.4.0 - 2026-05-18
+
+### Added
+
+- **Persisted queries** — operator pre-registers expensive queries
+  via `scry pq add/list/remove`; agent calls
+  `query_execute(server, hash="…")` instead of pushing full query
+  text. Per-server SQLite store at `<IndexDir>/<safe>.pq.db`.
+  Hot-add: changes via CLI take effect without restarting the
+  daemon. Cuts agent context budget + upstream payload for known
+  workloads.
+- **Apollo Federation awareness** — `_service { sdl }` probe on
+  every refresh extracts `@join__type(graph: NAME)` subgraph
+  ownership; `schema_search` surfaces a Subgraph column when
+  results carry one. Non-federated upstreams keep the original
+  3-column shape (no regression).
+- **Cache hit/miss metrics** — `scry.cache.hits_total{server}` +
+  `scry.cache.misses_total{server}` counters. Operators chart
+  per-upstream dedupe rate; agents get feedback on cache hygiene.
+- **Fuzz harness** — three FuzzXxx targets covering `ParseSDL`,
+  `gate.Classify`, `cache.Key`. Nightly CI runs each for 5
+  minutes; crashers upload as artifacts.
+  `.github/workflows/fuzz.yml`.
+
+### Tools
+
+- New: `scry pq add/list/remove` CLI.
+- `query_execute` accepts `hash` arg (mutually exclusive with
+  `query`). Returns `pq_not_found` / `pq_conflict` envelopes
+  with operator-actionable hints.
+
+### Deferred
+
+- **mTLS identity propagation** to v0.5 — blocked on mcp-go
+  [#93](https://github.com/felixgeelhaar/mcp-go/issues/93) (HTTP
+  transport doesn't expose a request-context augmentation hook,
+  so `req.TLS.PeerCertificates` can't reach the middleware
+  chain). Internal scry change reduces to a one-liner once
+  upstream lands the hook.
+
 ## 0.3.0 - 2026-05-18
 
 ### Added
