@@ -6,6 +6,51 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.3.0 - 2026-05-18
+
+### Added
+
+- **Audit chain anchor sidecar** — closes the v0.2 truncation gap.
+  When `--audit-keep > 0` rotation drops an archive, the last
+  record's ChainHash is persisted to `<session>.anchor` (0600).
+  `Gate.VerifyChainForSession` + `VerifyChainFromAnchor` read it
+  as the genesis prev-hash so chains survive arbitrarily many
+  rotations end-to-end. Existing `VerifyChain` stays as the
+  one-argument shortcut for callers without rotation history.
+- **OTel audit-log bridge** — every evidence record now ships
+  through OTel logs in addition to the local JSONL. `OTEL_LOGS_EXPORTER`
+  honours `none|otlp|stdout`; falls back to `OTEL_TRACES_EXPORTER`
+  for the single-pipeline case. Strict redaction: hashes only,
+  never raw query/response bodies. JSONL stays as the durable
+  local copy; OTel is the streaming sink for Splunk / Datadog /
+  Loki / any OTLP-receiving SIEM.
+- **Schema diff alerting** — refresh now diffs the new SDL against
+  the cached prior and emits a structured `schema.changed` log +
+  the `scry.schema.changes_total{kind=added|removed|breaking}`
+  metric. New `schema_diff(server)` MCP tool surfaces the last
+  diff so agents can plan around upstream schema evolution. First
+  refresh is suppressed (no "everything is added" noise on a
+  fresh upstream).
+- **Query result cache** — per-upstream TTL + LRU cache for read
+  queries, keyed by SHA-256(query | sorted variables | operationName).
+  Operator knobs: `--cache-ttl` (default 30s, 0 disables),
+  `--cache-max-entries` (default 1000, 0 unbounded). Mutations
+  always bypass. Cache hits record evidence as `outcome=ok_cached`
+  so audit + metrics distinguish cache vs upstream provenance.
+
+### Tools
+
+- `schema_diff` brings the MCP catalog to 12 tools.
+
+### Deferred
+
+- mcp-go `ToolFilter` upstream adoption. PR
+  [felixgeelhaar/mcp-go#92](https://github.com/felixgeelhaar/mcp-go/pull/92)
+  was closed unmerged by the maintainer. scry's internal
+  `internal/server/tool_filter.go` wrapper stays; the v0.3 acceptance
+  criterion ("scry doesn't ship its own tool-list filter") slips to
+  v0.4. The wrapper is functional + tested.
+
 ## 0.2.0 - 2026-05-18
 
 ### Added
