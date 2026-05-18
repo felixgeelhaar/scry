@@ -338,14 +338,21 @@ func (g *Gate) Stats(session SessionID) Stats {
 	return Stats{Writes: st.Writes, Complexity: st.Complexity, ChainLen: len(st.Chain)}
 }
 
-// VerifyChain re-derives every chain hash from scratch and reports
-// the first index where the recorded hash doesn't match. Returns 0
-// + nil when the whole chain checks out. Used as a defensive
-// integrity check; corruption is unlikely without tampering since
-// the chain is in-process memory, but the helper is here for the
-// "we serialised this to disk and want to verify it" path.
+// VerifyChain re-derives every chain hash from scratch starting from
+// an empty prev-hash. Returns 0 + nil when the whole chain checks
+// out. Right for chains that include the genesis record. For chains
+// loaded after a rotation truncated the head's predecessor, use
+// VerifyChainFromAnchor with the dropped predecessor's ChainHash.
 func VerifyChain(chain []Evidence) (badIndex int, err error) {
-	prev := ""
+	return VerifyChainFromAnchor("", chain)
+}
+
+// VerifyChainFromAnchor is the truncation-aware sibling of
+// VerifyChain. Uses `anchor` as the prev-hash that index 0 should
+// link against. Pass the value persisted in <session>.anchor (or
+// "" for chains that still hold their genesis record).
+func VerifyChainFromAnchor(anchor string, chain []Evidence) (badIndex int, err error) {
+	prev := anchor
 	for i, ev := range chain {
 		want := hashHex(prev + "|" +
 			ev.Timestamp.Format(time.RFC3339Nano) + "|" +
@@ -360,6 +367,24 @@ func VerifyChain(chain []Evidence) (badIndex int, err error) {
 		prev = ev.ChainHash
 	}
 	return 0, nil
+}
+
+// VerifyChainForSession re-derives the persisted chain for one
+// session, automatically pulling the rotation anchor from
+// `<session>.anchor` when present. Right entry point for operators
+// running an integrity check across rotation boundaries.
+func (g *Gate) VerifyChainForSession(session SessionID) (badIndex int, err error) {
+	chain := g.Chain(session)
+	if g.audit == nil {
+		return VerifyChain(chain)
+	}
+	g.mu.Lock()
+	anchor, aerr := g.audit.readAnchor(session)
+	g.mu.Unlock()
+	if aerr != nil {
+		return 0, aerr
+	}
+	return VerifyChainFromAnchor(anchor, chain)
 }
 
 func (g *Gate) sessionLocked(s SessionID) *sessionState {

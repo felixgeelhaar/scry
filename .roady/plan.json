@@ -3,6 +3,76 @@
   "spec_id": "scry",
   "tasks": [
     {
+      "id": "v03-anchor-sidecar",
+      "title": "Audit chain anchor sidecar closes truncation gap",
+      "description": "Write \u003csession\u003e.anchor next to the JSONL files holding the ChainHash of the oldest-still-retained record. On rotation truncation, refresh the anchor to point at the new oldest record. On load, read the anchor and use it as the initial prev-hash so VerifyChain succeeds end-to-end even after archives drop. Tests: keep=3 truncate-then-verify case from v0.2's TestAuditRotationKeepTruncatesAndDocumentsBoundary now passes cleanly; anchor file 0600 perms; missing anchor falls back to current behaviour (genesis prev=\"\").",
+      "priority": "high",
+      "estimate": "8h",
+      "depends_on": null,
+      "feature_id": "anchor-sidecar",
+      "source": {}
+    },
+    {
+      "id": "v03-audit-otel-logs",
+      "title": "Emit each Evidence record as an OTel log",
+      "description": "internal/obs/audit.go: thin wrapper that converts an Evidence record to an OTel LogRecord (timestamp, body=summary, attrs={server, effect, complexity, outcome, query_hash, response_hash, chain_hash, session}). Init in cmd/scry/main.go alongside tracer + meter; honour OTEL_LOGS_EXPORTER (none|otlp|stdout). Gate.Record gains a single Emit() call after the existing append path so JSONL stays the durable local copy. Tests: stdout exporter renders each record; no-op provider absorbs silently; redaction — no raw query/response bodies in attrs (hashes only).",
+      "priority": "high",
+      "estimate": "6h",
+      "depends_on": null,
+      "feature_id": "audit-otel-logs",
+      "source": {}
+    },
+    {
+      "id": "v03-tool-filter-adopt",
+      "title": "Adopt mcp-go ToolFilter when #92 ships",
+      "description": "Watch mcp-go #92 throughout v0.3 cycle. On merge + release: bump dep, replace internal/server/tool_filter.go with `mcp.WithMiddleware(mcp.ToolFilter(mayList))` one-liner, delete the wrapper + tool_filter_test.go (replaced by mcp-go's coverage). If unmerged at freeze: skip, document, file follow-up. Bonus stretch: open mcp-go ResourceFilter + PromptFilter PRs.",
+      "priority": "low",
+      "estimate": "3h",
+      "depends_on": null,
+      "feature_id": "tool-filter-adopt",
+      "source": {}
+    },
+    {
+      "id": "v03-schema-diff-alerts",
+      "title": "Schema diff alerts + schema_diff MCP tool",
+      "description": "internal/schema/diff.go: compare two *Schema instances, return added/removed/changed type names with a kind flag (additive vs breaking). runtime.refreshEntry calls Diff() against the previous SDL, persists last-N diffs in meta, emits log + metric `scry.schema.changes_total{kind}`. New MCP tool schema_diff(server, limit) returns the last N diffs. Tests: identical schemas → empty diff; added field → additive; removed field → breaking; changed required arg → breaking.",
+      "priority": "medium",
+      "estimate": "10h",
+      "depends_on": [
+        "v03-audit-otel-logs"
+      ],
+      "feature_id": "schema-diff-alerts",
+      "source": {}
+    },
+    {
+      "id": "v03-query-result-cache",
+      "title": "TTL query result cache",
+      "description": "internal/cache package with TTL-bounded Get/Set per upstream entry. Key = SHA-256(query|variables|operationName). Wired into query_execute: bypass for effect=write, otherwise check cache before upstream call. On hit: recordOutcome(\"ok_cached\", ...), gate.Record with outcome=ok_cached so chain stays accurate, return cached body. On miss: run upstream + Set on success. Operator knobs: --cache-ttl (default 30s, 0 disables), --cache-max-entries (default 1000). Metric: `scry.cache.{hits,misses}_total{server}`. Tests: TTL expiry, mutation bypass, max-entries LRU eviction, hit + miss metrics, audit chain contains cached entries.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": [
+        "v03-anchor-sidecar"
+      ],
+      "feature_id": "query-result-cache",
+      "source": {}
+    },
+    {
+      "id": "v03-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.3.0",
+      "description": "Promote Unreleased into ## 0.3.0 section. Add/Changed/Fixed groups. README badge updates if version-pinned. Final `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...`. Tag v0.3.0 + push. Release workflow auto-publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, brew formula bumps too.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v03-anchor-sidecar",
+        "v03-audit-otel-logs",
+        "v03-tool-filter-adopt",
+        "v03-schema-diff-alerts",
+        "v03-query-result-cache"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    },
+    {
       "id": "v02-custom-auth-headers",
       "title": "Custom auth header + scheme per server",
       "description": "Add auth.header_name + auth.scheme to auth.Server (servers.yml) + Client (clients.yml). Thread through upstream.Client.SetAuth so hot reload swaps without restart. Empty scheme = no prefix. Tests: bearer (default), X-API-Key (no scheme), Token \u003cT\u003e (custom scheme), refresh-on-reload.",
@@ -10,16 +80,6 @@
       "estimate": "4h",
       "depends_on": null,
       "feature_id": "custom-auth-headers",
-      "source": {}
-    },
-    {
-      "id": "v02-per-server-rate-limit",
-      "title": "Wire fortify rate limiter per server",
-      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
-      "priority": "high",
-      "estimate": "5h",
-      "depends_on": null,
-      "feature_id": "per-server-rate-limit",
       "source": {}
     },
     {
@@ -33,16 +93,6 @@
       "source": {}
     },
     {
-      "id": "v02-audit-rotation",
-      "title": "Audit JSONL size-based rotation with chain continuity",
-      "description": "Add --audit-max-size (50MiB default) + --audit-keep (5 default). On rollover: rename \u003csession\u003e.jsonl→\u003csession\u003e.jsonl.1, shift older suffixes, open new .jsonl. Critical: chain hash continuity across files — first record of new file uses last record's ChainHash of .jsonl.1 as prev. VerifyChain must verify across the whole sequence. Tests: rollover triggers at threshold, chain verifies end-to-end across 5+ rotations, keep-N truncates oldest.",
-      "priority": "high",
-      "estimate": "10h",
-      "depends_on": null,
-      "feature_id": "audit-rotation",
-      "source": {}
-    },
-    {
       "id": "v02-race-stress",
       "title": "Race-stress harness for hot-reload + Gate concurrency",
       "description": "Build-tagged (`stress`) test under internal/server/. Spawn N concurrent goroutines: half issuing query_execute against fakeUpstream, quarter rewriting servers.yml to trigger Replace(), quarter calling g.Record on shared session. Run for 30s; -race must report 0 races + 0 fatals. CI workflow: nightly job (cron) that runs the stress tag; not blocking on PR.",
@@ -53,18 +103,6 @@
         "v02-custom-auth-headers"
       ],
       "feature_id": "race-stress",
-      "source": {}
-    },
-    {
-      "id": "v02-scry-doctor",
-      "title": "scry doctor diagnostic CLI",
-      "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
-      "priority": "high",
-      "estimate": "10h",
-      "depends_on": [
-        "v02-audit-rotation"
-      ],
-      "feature_id": "scry-doctor",
       "source": {}
     },
     {
@@ -90,6 +128,38 @@
       "source": {}
     },
     {
+      "id": "v02-per-server-rate-limit",
+      "title": "Wire fortify rate limiter per server",
+      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
+      "priority": "high",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "per-server-rate-limit",
+      "source": {}
+    },
+    {
+      "id": "v02-audit-rotation",
+      "title": "Audit JSONL size-based rotation with chain continuity",
+      "description": "Add --audit-max-size (50MiB default) + --audit-keep (5 default). On rollover: rename \u003csession\u003e.jsonl→\u003csession\u003e.jsonl.1, shift older suffixes, open new .jsonl. Critical: chain hash continuity across files — first record of new file uses last record's ChainHash of .jsonl.1 as prev. VerifyChain must verify across the whole sequence. Tests: rollover triggers at threshold, chain verifies end-to-end across 5+ rotations, keep-N truncates oldest.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": null,
+      "feature_id": "audit-rotation",
+      "source": {}
+    },
+    {
+      "id": "v02-scry-doctor",
+      "title": "scry doctor diagnostic CLI",
+      "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": [
+        "v02-audit-rotation"
+      ],
+      "feature_id": "scry-doctor",
+      "source": {}
+    },
+    {
       "id": "v02-changelog-and-release",
       "title": "CHANGELOG sweep + tag v0.2.0",
       "description": "Move every v0.2 commit from CHANGELOG.md `Unreleased` into a `## 0.2.0 - YYYY-MM-DD` section grouped by Added/Changed/Fixed/Security. Update README badges if version-pinned. Confirm `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.2.0 + push. Release workflow publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, the brew formula bump fires too.",
@@ -111,5 +181,5 @@
   ],
   "approval_status": "approved",
   "created_at": "2026-05-18T07:10:11.363203+02:00",
-  "updated_at": "2026-05-18T07:10:11.363203+02:00"
+  "updated_at": "2026-05-18T09:50:35.909043+02:00"
 }

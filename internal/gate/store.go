@@ -93,6 +93,11 @@ func (s *auditStore) append(session SessionID, ev Evidence) error {
 // rotateLocked closes the current file, shifts archives by one slot
 // (dropping the oldest when keep is set), and reopens a fresh
 // <session>.jsonl. Caller MUST hold s.mu.
+//
+// When keep > 0 and the rotation would drop a file, the dropped
+// file's last ChainHash is persisted to <session>.anchor so
+// VerifyChainFromAnchor can pick up the chain at the new head
+// without an "" prev-hash mismatch.
 func (s *auditStore) rotateLocked(session SessionID) error {
 	// Flush + close current.
 	if w, ok := s.writers[session]; ok {
@@ -111,9 +116,16 @@ func (s *auditStore) rotateLocked(session SessionID) error {
 	base := s.pathFor(session)
 
 	// Drop the oldest archive when keep would be exceeded. With
-	// keep=0 (unlimited), retain everything indefinitely.
+	// keep=0 (unlimited), retain everything indefinitely. Before
+	// the unlink, harvest the last ChainHash so we know what the
+	// new chain head's predecessor was.
 	if s.keep > 0 {
 		oldest := fmt.Sprintf("%s.%d", base, s.keep)
+		if anchor, err := lastChainHash(oldest); err == nil && anchor != "" {
+			if werr := os.WriteFile(s.anchorPath(session), []byte(anchor), 0o600); werr != nil {
+				return fmt.Errorf("write anchor: %w", werr)
+			}
+		}
 		_ = os.Remove(oldest) // ignore missing
 	}
 
@@ -317,6 +329,60 @@ func (s *auditStore) Close() error {
 
 func (s *auditStore) pathFor(session SessionID) string {
 	return filepath.Join(s.dir, safeSessionName(string(session))+".jsonl")
+}
+
+// anchorPath returns the per-session anchor sidecar path. Carries
+// the ChainHash of the most-recently-dropped record so chains that
+// outlive `--audit-keep` rotations still verify end-to-end.
+func (s *auditStore) anchorPath(session SessionID) string {
+	return filepath.Join(s.dir, safeSessionName(string(session))+".anchor")
+}
+
+// readAnchor returns the persisted prev-hash for one session.
+// Returns "" + nil when no anchor exists (clean chain back to
+// genesis). Errors only on real I/O failures.
+func (s *auditStore) readAnchor(session SessionID) (string, error) {
+	b, err := os.ReadFile(s.anchorPath(session))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read anchor: %w", err)
+	}
+	return strings.TrimSpace(string(b)), nil
+}
+
+// lastChainHash scans the JSONL file and returns the ChainHash of
+// its last record. Used during rotation so we can persist the
+// predecessor link before the oldest archive disappears.
+func lastChainHash(path string) (string, error) {
+	f, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("open %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+
+	var lastHash string
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), 1<<20)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var ev Evidence
+		if err := json.Unmarshal(line, &ev); err != nil {
+			return "", fmt.Errorf("parse %s: %w", path, err)
+		}
+		lastHash = ev.ChainHash
+	}
+	if err := sc.Err(); err != nil {
+		return "", err
+	}
+	return lastHash, nil
 }
 
 // safeSessionName escapes a session identifier (which might be an

@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 17,
+  "version": 25,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -14,9 +14,15 @@
       "elapsed_minutes": 6
     },
     "v02-changelog-and-release": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "tag v0.2.0 + GitHub release https://github.com/felixgeelhaar/scry/releases/tag/v0.2.0 + commit 39cc350"
+      ],
+      "started_at": "2026-05-18T07:48:37.11872+02:00",
+      "completed_at": "2026-05-18T07:53:27.14485+02:00",
+      "elapsed_minutes": 4
     },
     "v02-custom-auth-headers": {
       "status": "done",
@@ -30,11 +36,15 @@
       "elapsed_minutes": 6
     },
     "v02-deployment-guide": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit b0fe5b5 — docker build verified locally"
+      ],
       "started_at": "2026-05-18T07:39:15.286831+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-18T07:43:55.216356+02:00",
+      "elapsed_minutes": 4
     },
     "v02-keychain-token-ref": {
       "status": "done",
@@ -81,12 +91,48 @@
       "elapsed_minutes": 3
     },
     "v02-tool-filter-upstream": {
-      "status": "blocked",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-18T07:22:04.287762+02:00",
+      "evidence": [
+        "mcp-go PR #92 https://github.com/felixgeelhaar/mcp-go/pull/92"
+      ],
+      "started_at": "2026-05-18T07:48:17.663369+02:00",
+      "completed_at": "2026-05-18T07:48:27.956819+02:00",
+      "elapsed_minutes": 0
+    },
+    "v03-anchor-sidecar": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T09:51:20.973754+02:00",
+      "elapsed_minutes": 0
+    },
+    "v03-audit-otel-logs": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v03-changelog-and-release": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v03-query-result-cache": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v03-schema-diff-alerts": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v03-tool-filter-adopt": {
+      "status": "pending",
+      "path": "",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T07:39:15.286831+02:00"
+  "updated_at": "2026-05-18T09:51:20.973754+02:00"
 }

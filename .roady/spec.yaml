@@ -3,108 +3,79 @@ title: scry
 description: |
   Searchable GraphQL ↔ MCP bridge for AI agents. Connects to one or many
   GraphQL endpoints, introspects each schema, builds a per-upstream SQLite
-  + FTS5 + BM25 index, and exposes ten MCP tools an agent can call. v0.1.0
-  is live; v0.2 hardens deployment, audit, and credential handling for
-  real-world hosted-MCP fleet operations.
+  + FTS5 + BM25 index, and exposes ten+ MCP tools an agent can call.
+  v0.1 shipped core; v0.2 hardened deployment + audit + credential
+  handling for hosted fleets; v0.3 closes the audit trust loop and
+  adds smarter performance / change-detection knobs.
 features:
-  - id: scry-doctor
-    title: scry doctor diagnostic CLI
+  - id: anchor-sidecar
+    title: Audit chain anchor sidecar
     description: |
-      One CLI subcommand that probes the local config and runtime
-      surface — for each configured upstream: reachability, introspection
-      mode (full / shallow / sdl-file), auth status, scope sanity for
-      clients.yml entries, audit-dir perms (0700 dir + 0600 files),
-      OTel exporter connectivity when configured. Single command, one
-      verdict per check, exit code != 0 when anything fails. Goal: halve
-      first-run support burden by giving operators a self-service
-      smoke test before they file an issue.
+      v0.2's rotation drops the prev-hash of the surviving chain head
+      when --audit-keep > 0, so VerifyChain trips at index 0 after a
+      truncation. Right fix: write a per-session anchor sidecar
+      (<session>.anchor) carrying the ChainHash of the last record in
+      the oldest still-retained archive. Verification reads the
+      anchor on load and uses it as the genesis prev-hash, so the
+      whole surviving chain validates end-to-end. Closes the
+      documented v0.2 trade-off in
+      TestAuditRotationKeepTruncatesAndDocumentsBoundary.
     requirements: []
 
-  - id: audit-rotation
-    title: Audit log rotation
+  - id: audit-otel-logs
+    title: OTel logs bridge for audit chain
     description: |
-      JSONL audit chains grow unbounded today. Add --audit-max-size
-      (default 50MiB per session) and --audit-keep (default 5 archived
-      files). On rollover: rename <session>.jsonl → <session>.jsonl.1,
-      shift older files, open a new .jsonl. Critical: chain links must
-      survive rotation — last hash of .jsonl.1 = previous hash for the
-      first record of the new .jsonl. Without this, VerifyChain breaks
-      across rollover. Right shape for production where audit lives for
-      years but per-session files would otherwise grow into hundreds of
-      MiB.
+      Emit each Evidence record as an OTel log alongside the JSONL
+      file when OTEL_LOGS_EXPORTER is set. Lets operators ship audit
+      to Splunk / Datadog / Loki / any OTLP-receiving SIEM without
+      scry-specific shipping code. JSONL stays as the durable
+      local-first record; OTel is the streaming sink.
+      Implementation: thin wrapper in obs/audit.go that constructs
+      an LogRecord per Evidence + emits via the configured logger
+      provider. Falls back to no-op when the exporter is unset.
     requirements: []
 
-  - id: custom-auth-headers
-    title: Custom auth header schemes
+  - id: tool-filter-adopt
+    title: Adopt mcp-go ToolFilter once PR #92 ships
     description: |
-      Today scry only emits `Authorization: Bearer <T>`. Many real
-      upstreams use `X-API-Key`, `Token <T>`, custom headers, or no
-      scheme prefix. Add per-server auth.header_name (default
-      "Authorization") + auth.scheme (default "Bearer"; empty string =
-      no prefix) to servers.yml + clients.yml. Wired through
-      upstream.Client.SetAuth so hot reload picks up changes. Unblocks
-      every upstream that doesn't follow the OAuth 2.0 Bearer
-      convention.
+      mcp-go PR #92 introduces a first-party ToolFilter middleware.
+      When it merges + releases: bump the mcp-go dep, replace
+      internal/server/tool_filter.go with one-liner usage of
+      mcp.ToolFilter(predicate), delete the wrapper + its tests
+      (replaced by mcp-go's own coverage). If still pending at v0.3
+      freeze: leave internal wrapper, document the deferral.
+      Bonus: file ResourceFilter + PromptFilter follow-up PRs once
+      ToolFilter lands.
     requirements: []
 
-  - id: keychain-token-ref
-    title: OS keychain token-ref scheme
+  - id: schema-diff-alerts
+    title: Schema diff alerting on refresh
     description: |
-      Add `keychain://service.account` token-ref scheme alongside env://,
-      file://, op://. Resolves via macOS Keychain, libsecret on Linux,
-      DPAPI on Windows using 99designs/keyring (or zalando/go-keyring —
-      pick during design). Falls back to file:// gracefully when no
-      keyring backend is available (CI, Docker, headless servers).
-      Operators with desktop installs get OS-protected credential
-      storage; CI keeps working without change. Documents the headless
-      fallback prominently.
+      Today's background refresh swaps the cached schema silently —
+      operators only notice schema breaks when a cached query
+      suddenly fails validation. Detect changes: hash the SDL before
+      + after refresh; on mismatch, compute a summary diff (added /
+      removed / changed types) via gqlparser, emit a structured log
+      event `schema.changed` + an OTel metric
+      `scry.schema.changes_total{kind=added|removed|breaking}`.
+      Operators wire that to their alerting (Datadog monitor,
+      Prometheus rule). New MCP tool `schema_diff(server, limit)`
+      surfaces the last N changes for agents that want to plan
+      around them.
     requirements: []
 
-  - id: per-server-rate-limit
-    title: Per-server rate limiting
+  - id: query-result-cache
+    title: TTL query result cache
     description: |
-      Fortify's middleware chain ships a rate-limiter; scry doesn't wire
-      it. Add per-server rate_limit.rps + rate_limit.burst to
-      servers.yml. Layer onto the existing fortify chain in
-      upstream.New(). Failure mode: rate-limit rejection surfaces as a
-      structured `rate_limited` error envelope with retry_after hint, so
-      agents back off cleanly instead of hammering the upstream.
-    requirements: []
-
-  - id: deployment-guide
-    title: Production deployment guide + manifests
-    description: |
-      docs/deployment/{docker,systemd,kubernetes}.md with copy-pasteable
-      artefacts: multi-stage Dockerfile with distroless final image, a
-      systemd unit with hardening flags (PrivateTmp, ProtectSystem=strict,
-      NoNewPrivileges, ReadWritePaths only the audit dir), and a
-      Kubernetes Deployment + ConfigMap + Secret + Service + optional HPA.
-      Replaces the current "configure your own systemd unit" gap that
-      keeps adoption a one-off engineering exercise per ops team.
-    requirements: []
-
-  - id: tool-filter-upstream
-    title: Adopt mcp-go #90 ToolFilter middleware
-    description: |
-      Filed mcp-go #90 proposes a first-party ToolFilter middleware that
-      filters tools/list responses by identity-aware predicates. When the
-      upstream PR merges + releases: replace scry's internal
-      tool_filter.go wrapper with the upstream-provided API. If still
-      pending at v0.2 cut: ship a PR to mcp-go ourselves rather than
-      carrying the workaround. Eliminates the schema-coupling concern
-      we already documented in the issue.
-    requirements: []
-
-  - id: race-stress
-    title: Race-stress integration test
-    description: |
-      Existing tests run with -race but at low concurrency. Add a
-      build-tagged stress test (`-tags=stress`) that drives hot-reload +
-      Gate.Record + concurrent query_execute under a wrk-style load
-      generator for 30s. Goal: surface lock-ordering bugs and
-      hot-reload-during-write races that single-thread unit tests miss.
-      Run nightly in CI with a dedicated job so it gates merges only
-      when intentionally triggered.
+      Many agents call the same query repeatedly during a task (re-
+      validating context). Add a per-server in-memory cache keyed by
+      SHA-256(query+variables+operationName), with TTL set via
+      --cache-ttl (default 30s, 0 disables). Mutations bypass
+      unconditionally (effect=write). Cache hits skip upstream +
+      record evidence with outcome=ok_cached so audit + metrics
+      distinguish cache vs upstream. Eviction: simple max-entries
+      LRU when --cache-max-entries is set; otherwise unbounded for
+      TTL semantics only.
     requirements: []
 constraints: []
-version: 0.2.0
+version: 0.3.0
