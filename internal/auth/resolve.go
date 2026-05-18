@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/99designs/keyring"
 )
 
 // ResolveToken interprets a token string from servers.yml. Two shapes
@@ -26,10 +29,10 @@ import (
 //	env://VAR_NAME           — value of the environment variable
 //	file://path/to/secret    — file contents (whitespace trimmed)
 //	op://Vault/Item/field    — shells out to the 1Password `op` CLI
-//
-// Future work (v0.2): keychain://service.account (macOS Keychain,
-// libsecret on Linux, DPAPI on Windows) once a portable keyring
-// library is vendored.
+//	keychain://service/key   — OS-native keyring (macOS Keychain,
+//	                           libsecret on Linux, Windows credential
+//	                           manager). Headless systems get a clear
+//	                           error pointing back to file://.
 func ResolveToken(ref string) (string, error) {
 	if !strings.Contains(ref, "://") {
 		return ref, nil
@@ -42,8 +45,10 @@ func ResolveToken(ref string) (string, error) {
 		return resolveFile(rest)
 	case "op":
 		return resolveOp(ref)
+	case "keychain":
+		return resolveKeychain(rest)
 	default:
-		return "", fmt.Errorf("auth: unknown token ref scheme %q (supported: env, file, op)", scheme)
+		return "", fmt.Errorf("auth: unknown token ref scheme %q (supported: env, file, op, keychain)", scheme)
 	}
 }
 
@@ -78,6 +83,68 @@ func resolveFile(path string) (string, error) {
 		return "", fmt.Errorf("auth: read token file: %w", err)
 	}
 	return strings.TrimRight(string(b), "\r\n\t "), nil
+}
+
+// keychainOpener is the injection seam for tests. Production code
+// uses the package-default which opens the real OS keyring; tests
+// swap in an in-memory ArrayKeyring via SetKeychainOpenerForTest so
+// they don't pop OS auth dialogs.
+var keychainOpener = keyring.Open
+
+// SetKeychainOpenerForTest swaps the keychain factory. Returns the
+// previous opener so tests can restore via defer.
+func SetKeychainOpenerForTest(fn func(keyring.Config) (keyring.Keyring, error)) (restore func()) {
+	prev := keychainOpener
+	keychainOpener = fn
+	return func() { keychainOpener = prev }
+}
+
+// resolveKeychain reads `service/key` (the rest of the URI after
+// `keychain://`). The first path segment is the service name passed
+// to the OS keyring; the remainder is the entry key within that
+// service. Slashes inside the key are preserved so "scry/upstream"
+// stays a single key, e.g. `keychain://scry/scry/upstream` yields
+// service="scry", key="scry/upstream".
+//
+// Failures:
+//   - ref without "/" separator: configuration error
+//   - keyring.ErrNoAvailImpl: headless system without a supported
+//     backend; surface a clear hint to switch to file://
+//   - keyring.ErrKeyNotFound: the operator hasn't stored the secret
+//     yet; suggest the platform-appropriate add command
+func resolveKeychain(rest string) (string, error) {
+	service, key, ok := strings.Cut(rest, "/")
+	if !ok || service == "" || key == "" {
+		return "", fmt.Errorf("auth: keychain:// ref must be 'service/key', got %q", rest)
+	}
+	kr, err := keychainOpener(keyring.Config{
+		ServiceName: service,
+		// Allowed backends: every native option. Drop the
+		// file-based backend (it would expose a YAML-style prompt
+		// dialogue at runtime, defeating the point of using a
+		// keychain). Pass-store is similar — works headless but
+		// needs additional ceremony; keep it explicit.
+		AllowedBackends: []keyring.BackendType{
+			keyring.KeychainBackend,      // macOS
+			keyring.SecretServiceBackend, // Linux (libsecret)
+			keyring.KWalletBackend,       // KDE
+			keyring.WinCredBackend,       // Windows
+		},
+	})
+	if errors.Is(err, keyring.ErrNoAvailImpl) {
+		return "", fmt.Errorf("auth: keychain:// requires an OS keyring backend (macOS Keychain / libsecret / KWallet / Windows credential manager) — none available on this host; use file:// or env:// instead")
+	}
+	if err != nil {
+		return "", fmt.Errorf("auth: open keychain service %q: %w", service, err)
+	}
+	item, err := kr.Get(key)
+	if errors.Is(err, keyring.ErrKeyNotFound) {
+		return "", fmt.Errorf("auth: keychain entry %q not found in service %q — store it first via your OS keyring UI (e.g. macOS Keychain Access) or `security add-generic-password -s %q -a %q -w <token>`", key, service, service, key)
+	}
+	if err != nil {
+		return "", fmt.Errorf("auth: read keychain entry %q/%q: %w", service, key, err)
+	}
+	return strings.TrimRight(string(item.Data), "\r\n\t "), nil
 }
 
 // resolveOp shells out to the 1Password CLI. The `op` binary handles
