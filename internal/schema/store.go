@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	// Pure-Go SQLite driver; registers itself with database/sql on import.
 	_ "modernc.org/sqlite"
@@ -32,6 +33,17 @@ func OpenStore(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("init schema: %w", err)
 	}
+	// Forward migration: v0.4 added `subgraph` to existing
+	// schemas. ALTER TABLE is a no-op when the column already
+	// exists (CREATE TABLE above already includes it for fresh
+	// DBs); we swallow the "duplicate column" error so reopens
+	// stay clean.
+	if _, err := db.Exec(`ALTER TABLE units ADD COLUMN subgraph TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
+			_ = db.Close()
+			return nil, fmt.Errorf("migrate subgraph column: %w", err)
+		}
+	}
 	return &Store{db: db}, nil
 }
 
@@ -49,7 +61,8 @@ CREATE TABLE IF NOT EXISTS units (
   description TEXT NOT NULL DEFAULT '',
   signature   TEXT NOT NULL DEFAULT '',
   sdl         TEXT NOT NULL DEFAULT '',
-  composed    TEXT NOT NULL DEFAULT ''
+  composed    TEXT NOT NULL DEFAULT '',
+  subgraph    TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS meta (
@@ -93,8 +106,8 @@ func (s *Store) Replace(ctx context.Context, units []SearchUnit) error {
 		return fmt.Errorf("clear units: %w", err)
 	}
 	stmt, err := tx.PrepareContext(ctx, `
-INSERT INTO units (name, kind, parent_type, description, signature, sdl, composed)
-VALUES (?, ?, ?, ?, ?, ?, ?)`)
+INSERT INTO units (name, kind, parent_type, description, signature, sdl, composed, subgraph)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("prepare insert: %w", err)
 	}
@@ -102,7 +115,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`)
 
 	for _, u := range units {
 		if _, err := stmt.ExecContext(ctx,
-			u.Name, u.Kind, u.ParentType, u.Description, u.Signature, u.SDL, u.Composed,
+			u.Name, u.Kind, u.ParentType, u.Description, u.Signature, u.SDL, u.Composed, u.Subgraph,
 		); err != nil {
 			return fmt.Errorf("insert %s: %w", u.Name, err)
 		}
@@ -120,6 +133,7 @@ type SearchResult struct {
 	ParentType  string
 	Description string
 	Signature   string
+	Subgraph    string
 	Score       float64
 }
 
@@ -141,7 +155,7 @@ func (s *Store) Search(ctx context.Context, query string, limit int) ([]SearchRe
 		return nil, nil
 	}
 	rows, err := s.db.QueryContext(ctx, `
-SELECT u.name, u.kind, u.parent_type, u.description, u.signature, bm25(units_fts) AS score
+SELECT u.name, u.kind, u.parent_type, u.description, u.signature, u.subgraph, bm25(units_fts) AS score
 FROM units_fts
 JOIN units u ON u.rowid = units_fts.rowid
 WHERE units_fts MATCH ?
@@ -155,7 +169,7 @@ LIMIT ?`, q, limit)
 	var out []SearchResult
 	for rows.Next() {
 		var r SearchResult
-		if err := rows.Scan(&r.Name, &r.Kind, &r.ParentType, &r.Description, &r.Signature, &r.Score); err != nil {
+		if err := rows.Scan(&r.Name, &r.Kind, &r.ParentType, &r.Description, &r.Signature, &r.Subgraph, &r.Score); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 		out = append(out, r)

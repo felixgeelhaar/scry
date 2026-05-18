@@ -526,10 +526,25 @@ func refreshEntry(ctx context.Context, e *Entry, resolver func() string, force b
 			Msg("upstream rejected full-depth introspection; indexed with shallow query (inner NonNull wrappers may be lost in SDL)")
 	}
 
+	// Federation probe — best-effort. Failure here doesn't fail
+	// the refresh; non-federated upstreams hit this constantly +
+	// it's correct for them to return empty.
+	federationSDL, _ := schema.ProbeFederation(ctx, e.Upstream, resolver, &http.Client{Timeout: 10 * time.Second})
+	subgraphs := schema.SubgraphMap(federationSDL)
+
 	if err := persistSchema(ctx, e, s, mode); err != nil {
 		return err
 	}
 	units := schema.BuildUnits(s)
+	schema.ApplySubgraphTags(units, subgraphs)
+	// Re-persist units now that subgraph tags are populated —
+	// the persistSchema call above wrote them with empty tags
+	// because BuildUnits + Apply is the second pass.
+	if len(subgraphs) > 0 {
+		if err := e.Store.Replace(ctx, units); err != nil {
+			return fmt.Errorf("replace units with subgraph tags: %w", err)
+		}
+	}
 
 	// Diff against the prior SDL — skip on first refresh (empty
 	// priorSDL) so we don't emit "everything is added" noise the

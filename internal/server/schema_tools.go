@@ -178,15 +178,38 @@ func renderSearchResults(server, query string, results []schema.SearchResult) st
 		fmt.Fprintf(&b, "No schema units on %q match %q.\n\nTip: try broader terms or singular forms (e.g. \"customer\" not \"customers's address\").", server, query)
 		return b.String()
 	}
+	// Federated upstreams populate the Subgraph field; render an
+	// extra column only when at least one hit carries one so
+	// non-federated callers don't see a useless empty column.
+	hasSubgraph := false
+	for _, r := range results {
+		if r.Subgraph != "" {
+			hasSubgraph = true
+			break
+		}
+	}
 	fmt.Fprintf(&b, "Top %d results for %q on server %q:\n\n", len(results), query, server)
-	b.WriteString("| Name | Kind | Signature |\n")
-	b.WriteString("|------|------|-----------|\n")
+	if hasSubgraph {
+		b.WriteString("| Name | Kind | Subgraph | Signature |\n")
+		b.WriteString("|------|------|----------|-----------|\n")
+	} else {
+		b.WriteString("| Name | Kind | Signature |\n")
+		b.WriteString("|------|------|-----------|\n")
+	}
 	for _, r := range results {
 		sig := r.Signature
 		if len(sig) > 80 {
 			sig = sig[:77] + "..."
 		}
-		fmt.Fprintf(&b, "| `%s` | %s | `%s` |\n", r.Name, r.Kind, sig)
+		if hasSubgraph {
+			sg := r.Subgraph
+			if sg == "" {
+				sg = "—"
+			}
+			fmt.Fprintf(&b, "| `%s` | %s | %s | `%s` |\n", r.Name, r.Kind, sg, sig)
+		} else {
+			fmt.Fprintf(&b, "| `%s` | %s | `%s` |\n", r.Name, r.Kind, sig)
+		}
 	}
 	b.WriteString("\nCall `schema_get(name)` for full SDL.\n\n")
 	b.WriteString("```json\n")

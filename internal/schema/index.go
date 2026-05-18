@@ -30,6 +30,10 @@ type SearchUnit struct {
 	// Composed is the BM25-indexed text: name + description + arg
 	// names + return type tokens. Built once at index time.
 	Composed string
+	// Subgraph is the Apollo Federation subgraph name owning this
+	// type/field. Empty for non-federated upstreams. Surfaced in
+	// schema_search results so agents see ownership at-a-glance.
+	Subgraph string
 }
 
 // BuildSDL renders the full schema as one concatenated SDL document.
