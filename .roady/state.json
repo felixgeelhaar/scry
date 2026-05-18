@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 38,
+  "version": 40,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -168,11 +168,15 @@
       "elapsed_minutes": 0
     },
     "v04-cache-metrics": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 6162088"
+      ],
       "started_at": "2026-05-18T11:21:44.721437+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-18T11:23:53.135407+02:00",
+      "elapsed_minutes": 2
     },
     "v04-changelog-and-release": {
       "status": "pending",
@@ -185,8 +189,10 @@
       "elapsed_minutes": 0
     },
     "v04-fuzz-tests": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T11:24:07.115562+02:00",
       "elapsed_minutes": 0
     },
     "v04-mtls-identity": {
@@ -200,5 +206,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T11:21:44.721437+02:00"
+  "updated_at": "2026-05-18T11:24:07.115562+02:00"
 }

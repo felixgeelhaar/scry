@@ -1,0 +1,62 @@
+name: Fuzz
+
+# Long-running fuzz harness for the GraphQL parsing + gating
+# surface. Runs nightly on `main` plus on-demand via the GitHub
+# UI for ad-hoc exploration. Not gating PR merges — fuzz time
+# would dominate the inner loop.
+on:
+  schedule:
+    # 03:00 UTC: after the stress workflow finishes, before
+    # the EU/US working day.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: "Per-target fuzz duration (e.g. 60s, 5m)"
+        required: false
+        default: "5m"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz GraphQL surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: ParseSDL
+            package: ./internal/schema/...
+          - name: Classify
+            package: ./internal/gate/...
+          - name: Key
+            package: ./internal/cache/...
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.4.0
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Run Fuzz${{ matrix.target.name }}
+        env:
+          FUZZTIME: ${{ github.event.inputs.fuzztime || '5m' }}
+        run: |
+          go test -run "^_$" -fuzz "Fuzz${{ matrix.target.name }}$" \
+            -fuzztime "$FUZZTIME" \
+            -timeout 25m \
+            ${{ matrix.target.package }}
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-crashers-${{ matrix.target.name }}
+          path: |
+            internal/**/testdata/fuzz/Fuzz${{ matrix.target.name }}/
+          retention-days: 30
