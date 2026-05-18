@@ -1,0 +1,115 @@
+{
+  "id": "plan-scry-1779081011",
+  "spec_id": "scry",
+  "tasks": [
+    {
+      "id": "v02-custom-auth-headers",
+      "title": "Custom auth header + scheme per server",
+      "description": "Add auth.header_name + auth.scheme to auth.Server (servers.yml) + Client (clients.yml). Thread through upstream.Client.SetAuth so hot reload swaps without restart. Empty scheme = no prefix. Tests: bearer (default), X-API-Key (no scheme), Token \u003cT\u003e (custom scheme), refresh-on-reload.",
+      "priority": "high",
+      "estimate": "4h",
+      "depends_on": null,
+      "feature_id": "custom-auth-headers",
+      "source": {}
+    },
+    {
+      "id": "v02-per-server-rate-limit",
+      "title": "Wire fortify rate limiter per server",
+      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
+      "priority": "high",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "per-server-rate-limit",
+      "source": {}
+    },
+    {
+      "id": "v02-keychain-token-ref",
+      "title": "keychain:// token-ref via 99designs/keyring",
+      "description": "Add ResolveToken case for keychain://service.account refs. Use 99designs/keyring (cross-platform: macOS Keychain, libsecret, Windows DPAPI). On keyring-unavailable error: return clear hint pointing operator to file:// fallback. Tests: parse keychain:// ref, mock keyring backend with table-driven cases, headless fallback path emits actionable error.",
+      "priority": "medium",
+      "estimate": "8h",
+      "depends_on": null,
+      "feature_id": "keychain-token-ref",
+      "source": {}
+    },
+    {
+      "id": "v02-audit-rotation",
+      "title": "Audit JSONL size-based rotation with chain continuity",
+      "description": "Add --audit-max-size (50MiB default) + --audit-keep (5 default). On rollover: rename \u003csession\u003e.jsonl→\u003csession\u003e.jsonl.1, shift older suffixes, open new .jsonl. Critical: chain hash continuity across files — first record of new file uses last record's ChainHash of .jsonl.1 as prev. VerifyChain must verify across the whole sequence. Tests: rollover triggers at threshold, chain verifies end-to-end across 5+ rotations, keep-N truncates oldest.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": null,
+      "feature_id": "audit-rotation",
+      "source": {}
+    },
+    {
+      "id": "v02-race-stress",
+      "title": "Race-stress harness for hot-reload + Gate concurrency",
+      "description": "Build-tagged (`stress`) test under internal/server/. Spawn N concurrent goroutines: half issuing query_execute against fakeUpstream, quarter rewriting servers.yml to trigger Replace(), quarter calling g.Record on shared session. Run for 30s; -race must report 0 races + 0 fatals. CI workflow: nightly job (cron) that runs the stress tag; not blocking on PR.",
+      "priority": "high",
+      "estimate": "8h",
+      "depends_on": [
+        "v02-audit-rotation",
+        "v02-custom-auth-headers"
+      ],
+      "feature_id": "race-stress",
+      "source": {}
+    },
+    {
+      "id": "v02-scry-doctor",
+      "title": "scry doctor diagnostic CLI",
+      "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": [
+        "v02-audit-rotation"
+      ],
+      "feature_id": "scry-doctor",
+      "source": {}
+    },
+    {
+      "id": "v02-deployment-guide",
+      "title": "Docker + systemd + Kubernetes deployment artefacts",
+      "description": "Three new files: docs/deployment/docker.md + Dockerfile (multi-stage, distroless final, non-root UID, ENTRYPOINT scry serve); docs/deployment/systemd.md + scry.service template with PrivateTmp/ProtectSystem=strict/NoNewPrivileges/ReadWritePaths-pin-to-audit-dir; docs/deployment/kubernetes.md + manifests/k8s/{deployment,configmap,secret,service,hpa}.yaml with readiness probe = `scry doctor`, resource limits, run-as non-root, fsGroup for audit volume. Smoke: docker build succeeds, image runs `scry version`. k8s manifests apply on kind cluster.",
+      "priority": "medium",
+      "estimate": "12h",
+      "depends_on": [
+        "v02-scry-doctor"
+      ],
+      "feature_id": "deployment-guide",
+      "source": {}
+    },
+    {
+      "id": "v02-tool-filter-upstream",
+      "title": "Adopt mcp-go ToolFilter once #90 ships (or upstream the PR)",
+      "description": "Check status of mcp-go #90 weekly through v0.2 cycle. If merged + released: bump dep, swap internal/server/tool_filter.go for the upstream-provided `mcp.ToolFilter(predicate) Middleware`, delete the wrapper. If still open at v0.2 freeze: open a PR against mcp-go ourselves with the internal/server/tool_filter.go implementation refactored to use typed handler internals. Acceptance: scry doesn't ship its own tool-list filter middleware by v0.2.0.",
+      "priority": "low",
+      "estimate": "3h",
+      "depends_on": null,
+      "feature_id": "tool-filter-upstream",
+      "source": {}
+    },
+    {
+      "id": "v02-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.2.0",
+      "description": "Move every v0.2 commit from CHANGELOG.md `Unreleased` into a `## 0.2.0 - YYYY-MM-DD` section grouped by Added/Changed/Fixed/Security. Update README badges if version-pinned. Confirm `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.2.0 + push. Release workflow publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, the brew formula bump fires too.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v02-custom-auth-headers",
+        "v02-per-server-rate-limit",
+        "v02-keychain-token-ref",
+        "v02-audit-rotation",
+        "v02-race-stress",
+        "v02-scry-doctor",
+        "v02-deployment-guide",
+        "v02-tool-filter-upstream"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    }
+  ],
+  "approval_status": "approved",
+  "created_at": "2026-05-18T07:10:11.363203+02:00",
+  "updated_at": "2026-05-18T07:10:11.363203+02:00"
+}

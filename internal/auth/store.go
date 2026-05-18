@@ -50,6 +50,34 @@ type Auth struct {
 	Token     string    `yaml:"token,omitempty"`
 	ExpiresAt time.Time `yaml:"expires_at,omitempty"`
 	RefreshAt time.Time `yaml:"refresh_at,omitempty"`
+	// HeaderName overrides the HTTP header scry writes the
+	// credential into. Default "Authorization" — set this when the
+	// upstream uses a non-standard header (e.g. "X-API-Key").
+	HeaderName string `yaml:"header_name,omitempty"`
+	// Scheme overrides the value prefix. Default "Bearer". Set to
+	// "" (an explicit empty string in YAML) when the upstream
+	// expects the raw credential with no prefix.
+	Scheme *string `yaml:"scheme,omitempty"`
+}
+
+// HeaderAndScheme returns the resolved header name + value scheme for
+// this Auth block. Centralised so callers get the same defaults
+// without re-implementing the precedence rules.
+//
+// Returns (headerName, scheme, hasScheme). hasScheme=false signals an
+// empty prefix (raw credential value).
+func (a Auth) HeaderAndScheme() (string, string, bool) {
+	header := a.HeaderName
+	if header == "" {
+		header = "Authorization"
+	}
+	if a.Scheme == nil {
+		return header, "Bearer", true
+	}
+	if *a.Scheme == "" {
+		return header, "", false
+	}
+	return header, *a.Scheme, true
 }
 
 // Status is the v0 traffic light for one server's credentials.

@@ -25,7 +25,7 @@ func TestExecuteSendsQueryAndReturnsBody(t *testing.T) {
 
 	c, err := New(Config{
 		Endpoint: srv.URL,
-		Auth:     func() string { return "test-token" },
+		Auth:     AuthSpec{HasScheme: true, Scheme: "Bearer", Token: func() string { return "test-token" }},
 		Timeout:  2 * time.Second,
 	})
 	if err != nil {

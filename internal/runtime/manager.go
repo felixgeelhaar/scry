@@ -45,6 +45,13 @@ type Entry struct {
 	// token at request time, kept for logs / status. Never holds
 	// the resolved secret itself.
 	AuthRef string
+	// AuthHeader is the header name override (empty = default
+	// "Authorization"). Kept on the entry so Replace can detect
+	// changes and re-emit the AuthSpec.
+	AuthHeader string
+	// AuthScheme is the scheme prefix override. Nil = default
+	// "Bearer". Non-nil empty string = no prefix.
+	AuthScheme *string
 	// SDLPath, when non-empty, signals that this entry's schema
 	// was loaded from a local SDL file rather than via
 	// introspection. Refresh re-reads the same file.
@@ -149,6 +156,13 @@ type AddConfig struct {
 	Name     string
 	Upstream string
 	AuthRef  string // env://... / file://... / op://... / literal
+	// AuthHeader overrides the HTTP header scry writes the
+	// credential into. Empty defaults to "Authorization".
+	AuthHeader string
+	// AuthScheme overrides the value prefix. Nil = default
+	// "Bearer". Non-nil with empty string = raw credential, no
+	// prefix.
+	AuthScheme *string
 	// Force forces a fresh introspection even when the per-server
 	// SQLite index already has units cached. Used by the
 	// hot-reload path when an upstream URL changes — same file
@@ -178,10 +192,10 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		return fmt.Errorf("runtime: open store for %q: %w", ac.Name, err)
 	}
 
-	resolver := tokenResolver(ac.Name, ac.AuthRef)
+	authSpec := buildAuthSpec(ac)
 	client, err := upstream.New(upstream.Config{
 		Endpoint: ac.Upstream,
-		Auth:     resolver,
+		Auth:     authSpec,
 	})
 	if err != nil {
 		_ = store.Close()
@@ -189,15 +203,17 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 	}
 
 	entry := &Entry{
-		Name:     ac.Name,
-		Upstream: ac.Upstream,
-		Store:    store,
-		Client:   client,
-		AuthRef:  ac.AuthRef,
-		SDLPath:  ac.SDLPath,
+		Name:       ac.Name,
+		Upstream:   ac.Upstream,
+		Store:      store,
+		Client:     client,
+		AuthRef:    ac.AuthRef,
+		AuthHeader: ac.AuthHeader,
+		AuthScheme: ac.AuthScheme,
+		SDLPath:    ac.SDLPath,
 	}
 
-	if err := refreshEntry(ctx, entry, resolver, ac.Force); err != nil {
+	if err := refreshEntry(ctx, entry, tokenResolver(ac.Name, ac.AuthRef), ac.Force); err != nil {
 		_ = store.Close()
 		return fmt.Errorf("runtime: refresh %q: %w", ac.Name, err)
 	}
@@ -213,11 +229,28 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 // the Replace + LoadFromServers paths consistent.
 func addConfigFromServer(name string, srv auth.Server) AddConfig {
 	return AddConfig{
-		Name:     name,
-		Upstream: srv.Upstream,
-		AuthRef:  srv.Auth.Token,
-		SDLPath:  srv.SDLPath,
+		Name:       name,
+		Upstream:   srv.Upstream,
+		AuthRef:    srv.Auth.Token,
+		AuthHeader: srv.Auth.HeaderName,
+		AuthScheme: srv.Auth.Scheme,
+		SDLPath:    srv.SDLPath,
 	}
+}
+
+// schemePtrEqual compares two *string scheme overrides. Nil pointers
+// are equal to each other but not to a pointer-to-empty-string, so
+// "no override" stays distinct from "explicit no-prefix" — the
+// distinction matters for Replace's diff (rotating scheme from
+// default Bearer to "" needs to trigger SetAuth).
+func schemePtrEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
 
 // LoadFromServers seeds the Manager from a parsed servers.yml.
@@ -318,14 +351,23 @@ func (m *Manager) Replace(ctx context.Context, s *auth.Servers) error {
 			}
 			continue
 		}
-		if existing.AuthRef != srv.Auth.Token {
+		// Token / header / scheme changes are all in-place: rebuild
+		// the AuthSpec from the freshly-parsed server entry and
+		// atomically swap. URL change is the only reason to
+		// re-introspect.
+		newAC := addConfigFromServer(name, srv)
+		if existing.AuthRef != srv.Auth.Token ||
+			existing.AuthHeader != newAC.AuthHeader ||
+			!schemePtrEqual(existing.AuthScheme, newAC.AuthScheme) {
 			existing.AuthRef = srv.Auth.Token
-			existing.Client.SetAuth(tokenResolver(name, srv.Auth.Token))
+			existing.AuthHeader = newAC.AuthHeader
+			existing.AuthScheme = newAC.AuthScheme
+			existing.Client.SetAuth(buildAuthSpec(newAC))
 			obs.L.Info().
-				Str("event", "runtime.replace_token_rotated").
+				Str("event", "runtime.replace_auth_rotated").
 				Str("server", name).
 				Str("new_ref", obs.RedactTokenRef(srv.Auth.Token)).
-				Msg("hot-reload: token rotated without re-introspection")
+				Msg("hot-reload: auth spec rotated without re-introspection")
 		}
 	}
 
@@ -367,8 +409,7 @@ func (m *Manager) Refresh(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	resolver := tokenResolver(entry.Name, entry.AuthRef)
-	return refreshEntry(ctx, entry, resolver, true)
+	return refreshEntry(ctx, entry, tokenResolver(entry.Name, entry.AuthRef), true)
 }
 
 // refreshEntry runs introspection + index rebuild for one Entry.
@@ -499,10 +540,39 @@ func tokenResolver(server, ref string) func() string {
 				Str("server", server).
 				Str("ref", obs.RedactTokenRef(ref)).
 				Err(err).
-				Msg("upstream token resolution failed; sending no Authorization header")
+				Msg("upstream token resolution failed; sending no auth header")
 			return ""
 		}
 		return tok
+	}
+}
+
+// buildAuthSpec produces the upstream.AuthSpec for one Add request.
+// Centralises the AddConfig→AuthSpec mapping so the Add path and
+// Replace path stay consistent.
+//
+// AuthRef == "" yields a spec with Token=nil (the upstream client
+// skips the auth header entirely). Anything else builds a resolver
+// + the operator-specified header / scheme overrides.
+func buildAuthSpec(ac AddConfig) upstream.AuthSpec {
+	if ac.AuthRef == "" {
+		return upstream.AuthSpec{}
+	}
+	header := ac.AuthHeader
+	if header == "" {
+		header = "Authorization"
+	}
+	scheme := "Bearer"
+	hasScheme := true
+	if ac.AuthScheme != nil {
+		scheme = *ac.AuthScheme
+		hasScheme = scheme != ""
+	}
+	return upstream.AuthSpec{
+		Header:    header,
+		Scheme:    scheme,
+		HasScheme: hasScheme,
+		Token:     tokenResolver(ac.Name, ac.AuthRef),
 	}
 }
 

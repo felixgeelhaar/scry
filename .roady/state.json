@@ -1,0 +1,54 @@
+{
+  "project_id": "scry",
+  "version": 3,
+  "task_states": {
+    "v02-audit-rotation": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-changelog-and-release": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-custom-auth-headers": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T07:10:48.226257+02:00",
+      "elapsed_minutes": 0
+    },
+    "v02-deployment-guide": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-keychain-token-ref": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-per-server-rate-limit": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-race-stress": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-scry-doctor": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v02-tool-filter-upstream": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    }
+  },
+  "updated_at": "2026-05-18T07:10:48.226257+02:00"
+}

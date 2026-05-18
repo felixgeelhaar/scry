@@ -29,23 +29,42 @@ import (
 // — the fortify chain is shared across all query_execute calls so
 // circuit-breaker state accumulates across requests.
 //
-// The auth resolver is held in an atomic.Pointer so SetAuth can
-// swap it on the fly when servers.yml hot-reloads a rotated token.
-// Lock-free on the hot path (one atomic Load per Execute call).
+// The auth spec is held in an atomic.Pointer so SetAuth can swap it
+// on the fly when servers.yml hot-reloads a rotated token, header
+// name, or scheme. Lock-free on the hot path (one atomic Load per
+// Execute call).
 type Client struct {
 	endpoint string
 	http     *http.Client
-	auth     atomic.Pointer[func() string]
+	auth     atomic.Pointer[AuthSpec]
+}
+
+// AuthSpec is the full credential shape one upstream needs: a header
+// name, an optional scheme prefix, and a function that resolves the
+// current secret value. Bundling them lets SetAuth swap header /
+// scheme / token together — important because the three change
+// together (per server) in servers.yml hot-reloads.
+//
+// HasScheme=false means "no prefix" — emit the header value as the
+// raw token. HasScheme=true uses Scheme + " " + Token. Empty Header
+// means "Authorization".
+type AuthSpec struct {
+	Header    string
+	Scheme    string
+	HasScheme bool
+	Token     func() string
 }
 
 // Config configures the upstream client. All fields have sensible
 // defaults; the only required field is Endpoint.
 type Config struct {
 	Endpoint string
-	// Auth is invoked once per request to fetch the current bearer
-	// token. Lets servers.yml hot-reload swap tokens without
-	// rebuilding the client.
-	Auth func() string
+	// Auth is the credential spec. When Auth.Token is non-nil it is
+	// invoked once per request to fetch the current value, so
+	// servers.yml hot-reload of a rotated token works without
+	// rebuilding the client. Nil Token disables the auth header
+	// entirely.
+	Auth AuthSpec
 	// Timeout caps individual upstream calls. Default 30s.
 	Timeout time.Duration
 	// MaxRetries bounds attempts. Default 3.
@@ -80,18 +99,18 @@ func New(cfg Config) (*Client, error) {
 		endpoint: cfg.Endpoint,
 		http:     &http.Client{Transport: rt, Timeout: cfg.Timeout},
 	}
-	if cfg.Auth != nil {
+	if cfg.Auth.Token != nil {
 		c.auth.Store(&cfg.Auth)
 	}
 	return c, nil
 }
 
-// SetAuth swaps the credential resolver atomically. Used by the
-// hot-reload path so a rotated token in servers.yml takes effect
-// without rebuilding the client (preserves circuit-breaker state +
-// the fortify chain).
-func (c *Client) SetAuth(fn func() string) {
-	c.auth.Store(&fn)
+// SetAuth swaps the credential spec atomically. Used by the
+// hot-reload path so a rotated token / header / scheme in
+// servers.yml takes effect without rebuilding the client
+// (preserves circuit-breaker state + the fortify chain).
+func (c *Client) SetAuth(spec AuthSpec) {
+	c.auth.Store(&spec)
 }
 
 // Result captures one Execute round-trip. Raw is the upstream's body
@@ -148,9 +167,17 @@ func (c *Client) Execute(ctx context.Context, query string, variables map[string
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	if fn := c.auth.Load(); fn != nil {
-		if tok := (*fn)(); tok != "" {
-			req.Header.Set("Authorization", "Bearer "+tok)
+	if spec := c.auth.Load(); spec != nil && spec.Token != nil {
+		if tok := spec.Token(); tok != "" {
+			header := spec.Header
+			if header == "" {
+				header = "Authorization"
+			}
+			value := tok
+			if spec.HasScheme && spec.Scheme != "" {
+				value = spec.Scheme + " " + tok
+			}
+			req.Header.Set(header, value)
 		}
 	}
 	resp, err := c.http.Do(req)
