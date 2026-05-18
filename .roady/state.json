@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 44,
+  "version": 51,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -179,9 +179,15 @@
       "elapsed_minutes": 2
     },
     "v04-changelog-and-release": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "tag v0.4.0 + GH release https://github.com/felixgeelhaar/scry/releases/tag/v0.4.0 + commit 66ebfb2"
+      ],
+      "started_at": "2026-05-18T11:40:31.01827+02:00",
+      "completed_at": "2026-05-18T11:45:32.346446+02:00",
+      "elapsed_minutes": 5
     },
     "v04-federation-aware": {
       "status": "done",
@@ -206,17 +212,49 @@
       "elapsed_minutes": 2
     },
     "v04-mtls-identity": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "Deferred to v0.5 — blocked on mcp-go #93 (HTTP transport context-augmentation hook). PR filed upstream with concrete scry use case + two API options. Internal scry change reduces to a one-liner once mcp-go lands the hook."
+      ],
+      "started_at": "2026-05-18T11:38:45.618479+02:00",
+      "completed_at": "2026-05-18T11:40:09.389779+02:00",
+      "elapsed_minutes": 1
+    },
+    "v04-persisted-queries": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit d0eb71e"
+      ],
+      "started_at": "2026-05-18T11:32:18.793626+02:00",
+      "completed_at": "2026-05-18T11:38:32.669295+02:00",
+      "elapsed_minutes": 6
+    },
+    "v05-changelog-and-release": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     },
-    "v04-persisted-queries": {
+    "v05-mutation-end-to-end": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v05-server-query-execute-coverage": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-18T11:32:18.793626+02:00",
+      "started_at": "2026-05-18T21:35:46.949239+02:00",
+      "elapsed_minutes": 0
+    },
+    "v05-server-schema-tools-coverage": {
+      "status": "pending",
+      "path": "",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T11:32:18.793626+02:00"
+  "updated_at": "2026-05-18T21:35:46.949239+02:00"
 }

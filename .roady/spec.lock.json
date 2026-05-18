@@ -1,44 +1,23 @@
 {
   "id": "scry",
   "title": "scry",
-  "description": "Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;\nv0.2 hardened deployment; v0.3 closed the audit + caching loop;\nv0.4 sharpens the dedupe / discoverability / identity stories\n(\"Agent economics\" — making each upstream call count more).\n",
+  "description": "Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;\nv0.2 hardened deployment; v0.3 closed the audit + caching loop;\nv0.4 sharpened the dedupe / discoverability stories.\nv0.5 hardens the wedge: lifts server-package coverage from 33%\nand closes mutation testing gaps surfaced after v0.4's Pokémon\nlive smoke (read-only).\n",
   "features": [
     {
-      "id": "persisted-queries",
-      "title": "Persisted queries (hash → query indirection)",
-      "description": "Operator pre-registers expensive queries via CLI; scry stores\nthe SHA-256(query) → query text map per upstream. Agents call\n`query_execute(server, hash=\"...\")` instead of pushing the full\nquery string every time. Cuts agent context budget + upstream\npayload + audit chain footprint for known-shape workloads\n(dashboards, batch ETL, recurring planner calls).\n\nCLI:\n  scry pq add \u003cserver\u003e \u003cname\u003e --file query.graphql\n  scry pq list \u003cserver\u003e\n  scry pq remove \u003cserver\u003e \u003chash|name\u003e\n\nStorage: per-server SQLite table in the existing index DB so\nhashes + bodies survive restarts + replicate with the schema\nindex. Hot-reload on `pq add` (no MCP reconnect needed).\n\nMapping precedence in query_execute: `hash` arg wins → look up,\n404 if missing. `query` arg → existing path. Both → conflict\nerror.\n",
+      "id": "server-coverage",
+      "title": "server package handler coverage uplift",
+      "description": "internal/server is the lowest-coverage package at 33%. Handler\npaths through query_execute (envelope shapes for invalid_query,\ncost_exceeded, budget_exceeded, unknown_server, auth_expired,\nupstream_error, permission_denied, rate_limited, pq_conflict,\npq_not_found, ok_cached, ok), schema_search variants, and\ngate guards are mostly tested via smoke OR not at all. v0.5\ntarget: 60%+ via direct handler unit tests that drive the\nregistered MCP tools through their internal closures, using\nfakes for runtime.Entry + upstream.Client where needed.\n",
       "requirements": [],
       "source": {}
     },
     {
-      "id": "federation-aware",
-      "title": "Apollo federation awareness in schema search",
-      "description": "Detect federated upstreams (probe `_service { sdl }` during\nintrospection). When present, parse the subgraph SDL and tag\neach type/field with its subgraph name. schema_search renders\nthe subgraph tag alongside results so agents see which subgraph\nowns a `Customer.email` vs `Customer.preferredCarrier`.\n\nCross-subgraph queries still hit the federated gateway URL the\noperator configured; scry doesn't reroute or compose. Just\nsurfaces ownership.\n",
-      "requirements": [],
-      "source": {}
-    },
-    {
-      "id": "cache-metrics",
-      "title": "Per-server cache hit/miss metrics",
-      "description": "v0.3 shipped the result cache without metric instrumentation.\nAdd `scry.cache.hits_total{server}` + `scry.cache.misses_total{server}`\ncounters wired through query_execute. Bypass calls (mutations\neffect=write) don't increment either. Operators wire to their\nmonitor; agents now have a feedback signal on whether their\ndedupe is working.\n",
-      "requirements": [],
-      "source": {}
-    },
-    {
-      "id": "fuzz-tests",
-      "title": "gqlparser / gate / cache fuzz harness",
-      "description": "Build-tagged fuzz tests over the GraphQL parsing surface:\n`schema.ParseSDL`, `gate.Classify`, `cache.Key`. Run with\n`go test -fuzz` locally + a nightly CI workflow that fuzzes\nfor 5 minutes per target. Catches crashes from adversarial\ninputs (malformed SDL, weird unicode in queries, gigantic\noperationName) before they reach prod.\n\nDiscovered crashers go into testdata/fuzz/ for replay; nightly\nrun is non-blocking on PRs.\n",
-      "requirements": [],
-      "source": {}
-    },
-    {
-      "id": "mtls-identity",
-      "title": "mTLS subject → MCP Identity propagation",
-      "description": "When --mtls-ca is set + the transport receives a verified\nclient cert, extract the subject CN (plus first DNS SAN as\nfallback) and surface it as `Identity.Name` in the MCP\nrequest context. Lets clients.yml scope by cert subject\ninstead of (or alongside) a shared-secret token —\nservice-mesh deployments where identity already lives in\nSPIFFE/X509 certs get a native authorisation path.\n\nImplementation: HTTP middleware that wraps the transport\nhandler chain and writes the cert-derived Identity onto\nctx before the BearerAuth middleware runs. Bearer + mTLS\ncompose: if both present, mTLS subject wins (the cert is\nthe strong identity).\n",
+      "id": "mutation-coverage",
+      "title": "End-to-end mutation testing",
+      "description": "v0.1–v0.4 unit-tested gate.Classify(\"mutation\") and write\nbudget exhaustion, but no test exercises query_execute with\na mutation against a real GraphQL backend — validate → cost\n→ gate write budget → upstream POST → audit record\noutcome=ok effect=write. Pokémon GraphQL is read-only, SWAPI\ntoo, so a live mutation smoke needs either a local docker\nupstream or an in-process httptest fake. v0.5 ships:\n  - httptest-backed mutation integration in\n    internal/server/mutation_test.go (deterministic, fast)\n  - documents the lack of a stable public mutation endpoint\n    so future contributors don't reinvent the search\n  - asserts: cache bypass on mutation, write counter\n    increments only on outcome=ok, chain Evidence carries\n    effect=write\n",
       "requirements": [],
       "source": {}
     }
   ],
   "constraints": [],
-  "version": "0.4.0"
+  "version": "0.5.0"
 }

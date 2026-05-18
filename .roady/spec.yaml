@@ -3,88 +3,42 @@ title: scry
 description: |
   Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;
   v0.2 hardened deployment; v0.3 closed the audit + caching loop;
-  v0.4 sharpens the dedupe / discoverability / identity stories
-  ("Agent economics" — making each upstream call count more).
+  v0.4 sharpened the dedupe / discoverability stories.
+  v0.5 hardens the wedge: lifts server-package coverage from 33%
+  and closes mutation testing gaps surfaced after v0.4's Pokémon
+  live smoke (read-only).
 features:
-  - id: persisted-queries
-    title: Persisted queries (hash → query indirection)
+  - id: server-coverage
+    title: server package handler coverage uplift
     description: |
-      Operator pre-registers expensive queries via CLI; scry stores
-      the SHA-256(query) → query text map per upstream. Agents call
-      `query_execute(server, hash="...")` instead of pushing the full
-      query string every time. Cuts agent context budget + upstream
-      payload + audit chain footprint for known-shape workloads
-      (dashboards, batch ETL, recurring planner calls).
-
-      CLI:
-        scry pq add <server> <name> --file query.graphql
-        scry pq list <server>
-        scry pq remove <server> <hash|name>
-
-      Storage: per-server SQLite table in the existing index DB so
-      hashes + bodies survive restarts + replicate with the schema
-      index. Hot-reload on `pq add` (no MCP reconnect needed).
-
-      Mapping precedence in query_execute: `hash` arg wins → look up,
-      404 if missing. `query` arg → existing path. Both → conflict
-      error.
+      internal/server is the lowest-coverage package at 33%. Handler
+      paths through query_execute (envelope shapes for invalid_query,
+      cost_exceeded, budget_exceeded, unknown_server, auth_expired,
+      upstream_error, permission_denied, rate_limited, pq_conflict,
+      pq_not_found, ok_cached, ok), schema_search variants, and
+      gate guards are mostly tested via smoke OR not at all. v0.5
+      target: 60%+ via direct handler unit tests that drive the
+      registered MCP tools through their internal closures, using
+      fakes for runtime.Entry + upstream.Client where needed.
     requirements: []
 
-  - id: federation-aware
-    title: Apollo federation awareness in schema search
+  - id: mutation-coverage
+    title: End-to-end mutation testing
     description: |
-      Detect federated upstreams (probe `_service { sdl }` during
-      introspection). When present, parse the subgraph SDL and tag
-      each type/field with its subgraph name. schema_search renders
-      the subgraph tag alongside results so agents see which subgraph
-      owns a `Customer.email` vs `Customer.preferredCarrier`.
-
-      Cross-subgraph queries still hit the federated gateway URL the
-      operator configured; scry doesn't reroute or compose. Just
-      surfaces ownership.
-    requirements: []
-
-  - id: cache-metrics
-    title: Per-server cache hit/miss metrics
-    description: |
-      v0.3 shipped the result cache without metric instrumentation.
-      Add `scry.cache.hits_total{server}` + `scry.cache.misses_total{server}`
-      counters wired through query_execute. Bypass calls (mutations
-      effect=write) don't increment either. Operators wire to their
-      monitor; agents now have a feedback signal on whether their
-      dedupe is working.
-    requirements: []
-
-  - id: fuzz-tests
-    title: gqlparser / gate / cache fuzz harness
-    description: |
-      Build-tagged fuzz tests over the GraphQL parsing surface:
-      `schema.ParseSDL`, `gate.Classify`, `cache.Key`. Run with
-      `go test -fuzz` locally + a nightly CI workflow that fuzzes
-      for 5 minutes per target. Catches crashes from adversarial
-      inputs (malformed SDL, weird unicode in queries, gigantic
-      operationName) before they reach prod.
-
-      Discovered crashers go into testdata/fuzz/ for replay; nightly
-      run is non-blocking on PRs.
-    requirements: []
-
-  - id: mtls-identity
-    title: mTLS subject → MCP Identity propagation
-    description: |
-      When --mtls-ca is set + the transport receives a verified
-      client cert, extract the subject CN (plus first DNS SAN as
-      fallback) and surface it as `Identity.Name` in the MCP
-      request context. Lets clients.yml scope by cert subject
-      instead of (or alongside) a shared-secret token —
-      service-mesh deployments where identity already lives in
-      SPIFFE/X509 certs get a native authorisation path.
-
-      Implementation: HTTP middleware that wraps the transport
-      handler chain and writes the cert-derived Identity onto
-      ctx before the BearerAuth middleware runs. Bearer + mTLS
-      compose: if both present, mTLS subject wins (the cert is
-      the strong identity).
+      v0.1–v0.4 unit-tested gate.Classify("mutation") and write
+      budget exhaustion, but no test exercises query_execute with
+      a mutation against a real GraphQL backend — validate → cost
+      → gate write budget → upstream POST → audit record
+      outcome=ok effect=write. Pokémon GraphQL is read-only, SWAPI
+      too, so a live mutation smoke needs either a local docker
+      upstream or an in-process httptest fake. v0.5 ships:
+        - httptest-backed mutation integration in
+          internal/server/mutation_test.go (deterministic, fast)
+        - documents the lack of a stable public mutation endpoint
+          so future contributors don't reinvent the search
+        - asserts: cache bypass on mutation, write counter
+          increments only on outcome=ok, chain Evidence carries
+          effect=write
     requirements: []
 constraints: []
-version: 0.4.0
+version: 0.5.0
