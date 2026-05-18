@@ -52,15 +52,20 @@ func run() int {
 		obs.L.Warn().Str("event", "boot.tracer_init_failed").Err(err).Msg("tracing disabled")
 	}
 	shutdownMeter, err := obs.InitMeter(ctxInit)
-	cancelInit()
 	if err != nil {
 		obs.L.Warn().Str("event", "boot.meter_init_failed").Err(err).Msg("metrics disabled")
+	}
+	shutdownAuditLog, err := obs.InitAuditLog(ctxInit)
+	cancelInit()
+	if err != nil {
+		obs.L.Warn().Str("event", "boot.audit_log_init_failed").Err(err).Msg("audit-log shipping disabled")
 	}
 	defer func() {
 		ctxShut, cancelShut := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelShut()
 		_ = shutdownTracer(ctxShut)
 		_ = shutdownMeter(ctxShut)
+		_ = shutdownAuditLog(ctxShut)
 	}()
 
 	if len(os.Args) < 2 {

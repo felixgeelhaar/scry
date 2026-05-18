@@ -103,6 +103,13 @@ type Policy struct {
 	// files retained after rotation. 0 retains all archives
 	// indefinitely. Sensible production default: 5.
 	AuditKeep int
+	// AuditEmitter, when non-nil, is invoked with every Evidence
+	// record after it lands in memory + the JSONL log. Used by
+	// the OTel logs bridge in internal/obs to publish each
+	// record through a structured log pipeline (SIEM, Loki,
+	// Datadog). Errors inside the emitter are swallowed — audit
+	// log shipping must never fail an upstream call.
+	AuditEmitter func(session SessionID, ev Evidence)
 }
 
 // SessionID is the opaque key used to look up budget + evidence
@@ -301,6 +308,12 @@ func (g *Gate) Record(session SessionID, server string, effect Effect, complexit
 	// obs.L when gate depends on obs without a cycle).
 	if g.audit != nil {
 		_ = g.audit.append(session, ev)
+	}
+	// Emit through the optional OTel logs bridge. Same swallow-
+	// errors rationale as the file write: audit shipping must
+	// not fail the upstream contract.
+	if g.policy.AuditEmitter != nil {
+		g.policy.AuditEmitter(session, ev)
 	}
 	return ev
 }

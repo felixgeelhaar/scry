@@ -181,6 +181,19 @@ func Run(ctx context.Context, cfg Config) error {
 		AuditDir:                cfg.AuditDir,
 		AuditMaxSize:            cfg.AuditMaxSize,
 		AuditKeep:               cfg.AuditKeep,
+		AuditEmitter: func(session gate.SessionID, ev gate.Evidence) {
+			obs.EmitAuditEvent(obs.AuditEvent{
+				Timestamp:    ev.Timestamp,
+				Session:      string(session),
+				Server:       ev.Server,
+				Effect:       string(ev.Effect),
+				Outcome:      ev.Outcome,
+				Complexity:   ev.Complexity,
+				QueryHash:    ev.QueryHash,
+				ResponseHash: ev.ResponseHash,
+				ChainHash:    ev.ChainHash,
+			})
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("build gate: %w", err)
