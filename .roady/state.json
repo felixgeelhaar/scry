@@ -1,13 +1,17 @@
 {
   "project_id": "scry",
-  "version": 9,
+  "version": 11,
   "task_states": {
     "v02-audit-rotation": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit e4fcdf8"
+      ],
       "started_at": "2026-05-18T07:22:44.546613+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-18T07:29:02.718324+02:00",
+      "elapsed_minutes": 6
     },
     "v02-changelog-and-release": {
       "status": "pending",
@@ -52,8 +56,10 @@
       "elapsed_minutes": 0
     },
     "v02-scry-doctor": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T07:29:25.920664+02:00",
       "elapsed_minutes": 0
     },
     "v02-tool-filter-upstream": {
@@ -64,5 +70,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T07:22:44.546613+02:00"
+  "updated_at": "2026-05-18T07:29:25.920664+02:00"
 }

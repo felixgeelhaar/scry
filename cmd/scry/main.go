@@ -76,6 +76,8 @@ func run() int {
 	case "auth":
 		runAuth(os.Args[2:])
 		return 0
+	case "doctor":
+		return runDoctor(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Printf("scry %s\ncommit %s\nbuilt %s\n", version.Version, version.Commit, version.Date)
 		return 0
@@ -100,6 +102,7 @@ usage:
   scry auth login   <server> --token <T> [--upstream <url>] [--expires <duration>]
   scry auth logout  <server>
   scry auth status  [<server>]
+  scry doctor [--audit-dir <path>]
   scry version
 `)
 }
