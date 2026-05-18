@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scry-config
+  namespace: scry
+data:
+  # servers.yml is the multi-upstream config scry watches via
+  # fsnotify. Tokens reference the Secret (env://VAR) so this
+  # ConfigMap stays non-sensitive.
+  servers.yml: |
+    version: 1
+    servers:
+      shopify:
+        upstream: https://api.shopify.com/admin/api/2024-01/graphql.json
+        auth:
+          type: bearer
+          token: env://SHOPIFY_TOKEN
+      linear:
+        upstream: https://api.linear.app/graphql
+        auth:
+          type: bearer
+          token: env://LINEAR_TOKEN
+
+  # clients.yml — optional per-client allowlists. Skip the file
+  # entirely (drop from the ConfigMap) for admin-only auth.
+  clients.yml: |
+    version: 1
+    clients:
+      - name: dashboard
+        token: env://DASHBOARD_TOKEN
+        tools: ["list_servers", "schema_search", "schema_get",
+                "query_validate", "query_cost", "auth_status"]
+        servers: ["*"]

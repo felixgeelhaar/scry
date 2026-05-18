@@ -1,0 +1,63 @@
+[Unit]
+Description=scry — searchable GraphQL ↔ MCP bridge
+Documentation=https://github.com/felixgeelhaar/scry
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=scry
+Group=scry
+EnvironmentFile=/etc/scry/scry.env
+Environment=XDG_CONFIG_HOME=/etc
+Environment=XDG_DATA_HOME=/var/lib
+
+ExecStart=/usr/local/bin/scry serve \
+  --transport http \
+  --listen :7777 \
+  --serve-auth env://SCRY_ADMIN_TOKEN \
+  --audit-dir /var/lib/scry/audit \
+  --audit-max-size 52428800 \
+  --audit-keep 5
+
+# Send SIGTERM on stop so scry's signal handler can flush the OTel
+# exporter + close audit files cleanly.
+KillSignal=SIGTERM
+TimeoutStopSec=10s
+Restart=on-failure
+RestartSec=5s
+
+# Hardening — minimum-blast-radius defaults. Adjust only if you
+# need to grant a specific capability.
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+MemoryDenyWriteExecute=yes
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Only the audit directory needs to be writable.
+ReadWritePaths=/var/lib/scry/audit
+ReadOnlyPaths=/etc/scry
+
+# Network: outbound to the GraphQL upstream + inbound to --listen.
+# Restrict to TCP if the deployment doesn't need UDP / unix sockets.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
