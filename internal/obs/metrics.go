@@ -37,6 +37,7 @@ type ScryMeters struct {
 	IntrospectCount   metric.Int64Counter
 	IntrospectErrors  metric.Int64Counter
 	UpstreamLatency   metric.Float64Histogram
+	SchemaChanges     metric.Int64Counter
 }
 
 // InitMeter sets up the global meter provider based on the OTEL
@@ -108,6 +109,9 @@ func Metrics() ScryMeters {
 		meters.UpstreamLatency, err = m.Float64Histogram("scry.upstream.latency_seconds",
 			metric.WithDescription("Upstream GraphQL POST latency in seconds"),
 			metric.WithUnit("s"))
+		mustMetric(err)
+		meters.SchemaChanges, err = m.Int64Counter("scry.schema.changes_total",
+			metric.WithDescription("Schema changes detected on refresh, by server + kind (added|removed|breaking)"))
 		mustMetric(err)
 	})
 	return meters

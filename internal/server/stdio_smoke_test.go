@@ -126,7 +126,7 @@ func TestStdioSmoke(t *testing.T) {
 		}
 	}
 	expected := []string{
-		"schema_search", "schema_get",
+		"schema_search", "schema_get", "schema_diff",
 		"query_validate", "query_cost", "query_execute",
 		"auth_status", "auth_login",
 		"list_servers",

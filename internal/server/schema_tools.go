@@ -90,6 +90,24 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 			return renderValidation(errs), nil
 		})
 
+	type DiffInput struct {
+		Server string `json:"server,omitempty"`
+	}
+	srv.Tool("schema_diff").
+		Description("Return the most recent schema diff for an upstream, computed at refresh time. Reports added / removed / breaking changes. Use to plan around upstream schema evolution; agents that cached query strings can spot when a referenced type / field has been removed before their next call fails validation.").
+		Handler(func(ctx context.Context, in DiffInput) (string, error) {
+			entry, errResp := resolveServer(in.Server, mgr)
+			if errResp != "" {
+				return errResp, nil
+			}
+			raw, err := entry.Store.GetMeta(ctx, "last_diff")
+			if err != nil {
+				return renderError("no_diff",
+					"no schema diff recorded yet — diffs are computed on each background refresh after the first one"), nil
+			}
+			return raw, nil
+		})
+
 	type CostInput struct {
 		Server string `json:"server,omitempty"`
 		Query  string `json:"query" jsonschema:"required,description=GraphQL query string to estimate"`

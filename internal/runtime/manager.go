@@ -6,6 +6,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -474,6 +475,12 @@ func refreshEntry(ctx context.Context, e *Entry, resolver func() string, force b
 		return nil
 	}
 
+	// Capture the previous SDL BEFORE introspection so we can
+	// diff against the fresh schema afterwards. Empty on first
+	// refresh (no prior data); diff treats that as everything
+	// being added, which is correctly suppressed below.
+	priorSDL, _ := e.Store.GetMeta(ctx, "full_sdl")
+
 	c := schema.NewClient(e.Upstream, resolver, &http.Client{Timeout: 30 * time.Second})
 	ictx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -511,6 +518,19 @@ func refreshEntry(ctx context.Context, e *Entry, resolver func() string, force b
 		return err
 	}
 	units := schema.BuildUnits(s)
+
+	// Diff against the prior SDL — skip on first refresh (empty
+	// priorSDL) so we don't emit "everything is added" noise the
+	// first time scry boots against a new upstream.
+	if priorSDL != "" {
+		priorSchema, perr := schema.ParseSDL(priorSDL, "prior")
+		if perr == nil {
+			report := schema.Diff(priorSchema, s)
+			if !report.Empty() {
+				persistAndEmitDiff(ctx, e, report)
+			}
+		}
+	}
 
 	span.SetAttributes(
 		attribute.String("introspection.mode", string(mode)),
@@ -603,6 +623,39 @@ func persistSchema(ctx context.Context, e *Entry, s *schema.Schema, mode schema.
 		return fmt.Errorf("persist introspection mode: %w", err)
 	}
 	return nil
+}
+
+// persistAndEmitDiff stores the latest diff in the entry's meta
+// and emits structured logs + a metric per change kind so
+// operators can alert on schema breaks. Best-effort — errors
+// don't kill the refresh.
+func persistAndEmitDiff(ctx context.Context, e *Entry, report schema.DiffReport) {
+	buf, err := json.Marshal(report)
+	if err == nil {
+		_ = e.Store.SetMeta(ctx, "last_diff", string(buf))
+	}
+	obs.L.Info().
+		Str("event", "schema.changed").
+		Str("server", e.Name).
+		Int("added", len(report.Added)).
+		Int("removed", len(report.Removed)).
+		Int("breaking", len(report.Breaking)).
+		Msg("upstream schema changed since last refresh")
+
+	m := obs.Metrics()
+	for kind, count := range map[string]int{
+		"added":    len(report.Added),
+		"removed":  len(report.Removed),
+		"breaking": len(report.Breaking),
+	} {
+		if count == 0 {
+			continue
+		}
+		m.SchemaChanges.Add(ctx, int64(count), otelmetric.WithAttributes(
+			attribute.String("server", e.Name),
+			attribute.String("kind", kind),
+		))
+	}
 }
 
 // safeIndexName escapes a server name into something usable as a

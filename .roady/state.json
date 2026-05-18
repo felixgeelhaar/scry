@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 27,
+  "version": 29,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -113,11 +113,15 @@
       "elapsed_minutes": 5
     },
     "v03-audit-otel-logs": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit f74ed9a"
+      ],
       "started_at": "2026-05-18T09:56:37.829827+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-18T10:01:08.554537+02:00",
+      "elapsed_minutes": 4
     },
     "v03-changelog-and-release": {
       "status": "pending",
@@ -130,8 +134,10 @@
       "elapsed_minutes": 0
     },
     "v03-schema-diff-alerts": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T10:01:43.283088+02:00",
       "elapsed_minutes": 0
     },
     "v03-tool-filter-adopt": {
@@ -140,5 +146,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T09:56:37.829827+02:00"
+  "updated_at": "2026-05-18T10:01:43.283088+02:00"
 }
