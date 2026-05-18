@@ -1,0 +1,42 @@
+name: Stress
+
+# Race-detector stress harness for hot-reload + Gate concurrency.
+# Runs nightly (cron) on main; can be triggered ad-hoc via the
+# GitHub UI when an operator suspects a race after a refactor.
+# Not gating on PRs — the 30s+ runtime would slow the loop.
+
+on:
+  schedule:
+    # 02:00 UTC: quiet window before the EU/US working day.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: "Override stress duration (e.g. 60s, 5m)"
+        required: false
+        default: "30s"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  race-stress:
+    name: Hot-reload + Gate race-stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.4.0
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Run stress with race detector
+        env:
+          SCRY_STRESS_DURATION: ${{ github.event.inputs.duration || '30s' }}
+        run: |
+          go test -tags=stress -race -timeout 10m -count=1 \
+            -run TestStress ./internal/runtime/... -v
