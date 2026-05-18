@@ -41,7 +41,10 @@ tokens of overhead per session. scry keeps the agent's context small —
 ## Quickstart
 
 ```bash
-# install
+# install via Homebrew (macOS + Linux)
+brew install felixgeelhaar/tap/scry
+
+# OR via go install
 go install github.com/felixgeelhaar/scry/cmd/scry@latest
 
 # single upstream — desktop MCP client launches scry as subprocess
