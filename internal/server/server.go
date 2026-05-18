@@ -73,6 +73,12 @@ type Config struct {
 	// chain to `<dir>/<safe-session>.jsonl`. Replayed on boot so
 	// VerifyChain survives restarts.
 	AuditDir string
+	// AuditMaxSize caps individual JSONL file size in bytes
+	// before rotation. 0 disables (single growing file).
+	AuditMaxSize int64
+	// AuditKeep caps archived rotation files per session. 0
+	// retains all archives forever.
+	AuditKeep int
 
 	// Transport selects the MCP transport: stdio | http | grpc | ws.
 	Transport string
@@ -116,6 +122,8 @@ func ParseFlags(args []string) (Config, error) {
 	fs.IntVar(&cfg.SessionComplexityLimit, "session-complexity", 0, "cap cumulative query complexity per session; 0 = unlimited")
 	fs.IntVar(&cfg.EvidenceLimit, "evidence-limit", 1000, "cap in-memory audit chain per session; 0 = unbounded")
 	fs.StringVar(&cfg.AuditDir, "audit-dir", "", "directory to persist evidence chains; empty disables on-disk audit")
+	fs.Int64Var(&cfg.AuditMaxSize, "audit-max-size", 50<<20, "rotate per-session audit JSONL above this size in bytes (50 MiB default); 0 disables rotation")
+	fs.IntVar(&cfg.AuditKeep, "audit-keep", 5, "retain at most this many archived audit files per session; 0 retains all")
 	fs.StringVar(&cfg.Transport, "transport", "stdio", "MCP transport: stdio | http | grpc | ws")
 	fs.StringVar(&cfg.ListenAddr, "listen", ":7777", "listen address (used by http/grpc/ws transports)")
 	fs.StringVar(&cfg.ServeAuthToken, "serve-auth", "", "admin bearer token clients must present; accepts env://VAR / file://path / op://... refs.")
@@ -171,6 +179,8 @@ func Run(ctx context.Context, cfg Config) error {
 		MaxComplexityPerSession: cfg.SessionComplexityLimit,
 		EvidenceLimit:           cfg.EvidenceLimit,
 		AuditDir:                cfg.AuditDir,
+		AuditMaxSize:            cfg.AuditMaxSize,
+		AuditKeep:               cfg.AuditKeep,
 	})
 	if err != nil {
 		return fmt.Errorf("build gate: %w", err)

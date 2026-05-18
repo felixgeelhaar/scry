@@ -95,6 +95,14 @@ type Policy struct {
 	// survives restarts. Existing files are replayed into memory
 	// at gate construction so VerifyChain spans restarts.
 	AuditDir string
+	// AuditMaxSize caps individual JSONL file size before
+	// rotation, in bytes. 0 disables rotation (single growing
+	// file). Sensible production default: 50 << 20 (50 MiB).
+	AuditMaxSize int64
+	// AuditKeep caps the number of archived <session>.jsonl.N
+	// files retained after rotation. 0 retains all archives
+	// indefinitely. Sensible production default: 5.
+	AuditKeep int
 }
 
 // SessionID is the opaque key used to look up budget + evidence
@@ -149,7 +157,7 @@ func New(p Policy) (*Gate, error) {
 	if p.AuditDir == "" {
 		return g, nil
 	}
-	store, err := newAuditStore(p.AuditDir)
+	store, err := newAuditStore(p.AuditDir, p.AuditMaxSize, p.AuditKeep)
 	if err != nil {
 		return nil, err
 	}
