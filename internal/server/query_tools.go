@@ -123,6 +123,9 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			if effect == gate.EffectRead && entry.Cache != nil {
 				cacheKey = cache.Key(in.Query, in.Variables, in.OperationName)
 				if body, hit := entry.Cache.Get(cacheKey); hit {
+					m.CacheHits.Add(ctx, 1, otelmetric.WithAttributes(
+						attribute.String("server", entry.Name),
+					))
 					ev.Str("outcome", "ok_cached").
 						Int("response_bytes", len(body)).
 						Dur("dur", time.Since(start)).Send()
@@ -130,6 +133,9 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 					g.Record(session, entry.Name, effect, complexity, in.Query, body, "ok_cached")
 					return string(body), nil
 				}
+				m.CacheMisses.Add(ctx, 1, otelmetric.WithAttributes(
+					attribute.String("server", entry.Name),
+				))
 			}
 			if decision := g.CheckBudget(session, effect, complexity); !decision.Allowed {
 				ev.Str("outcome", "budget_exceeded").

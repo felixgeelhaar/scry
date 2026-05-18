@@ -3,71 +3,73 @@
   "spec_id": "scry",
   "tasks": [
     {
-      "id": "v03-anchor-sidecar",
-      "title": "Audit chain anchor sidecar closes truncation gap",
-      "description": "Write \u003csession\u003e.anchor next to the JSONL files holding the ChainHash of the oldest-still-retained record. On rotation truncation, refresh the anchor to point at the new oldest record. On load, read the anchor and use it as the initial prev-hash so VerifyChain succeeds end-to-end even after archives drop. Tests: keep=3 truncate-then-verify case from v0.2's TestAuditRotationKeepTruncatesAndDocumentsBoundary now passes cleanly; anchor file 0600 perms; missing anchor falls back to current behaviour (genesis prev=\"\").",
+      "id": "v04-cache-metrics",
+      "title": "Wire cache hit/miss counters into query_execute",
+      "description": "Add ScryMeters.CacheHits + ScryMeters.CacheMisses Int64Counter, dimensioned by server label. Increment from query_execute right after cache.Get returns hit/miss (only for effect=read; mutations don't touch cache). Test: hit/miss recorded with correct outcome + server attribute. Update README observability section to list the new metrics.",
       "priority": "high",
-      "estimate": "8h",
-      "depends_on": null,
-      "feature_id": "anchor-sidecar",
-      "source": {}
-    },
-    {
-      "id": "v03-audit-otel-logs",
-      "title": "Emit each Evidence record as an OTel log",
-      "description": "internal/obs/audit.go: thin wrapper that converts an Evidence record to an OTel LogRecord (timestamp, body=summary, attrs={server, effect, complexity, outcome, query_hash, response_hash, chain_hash, session}). Init in cmd/scry/main.go alongside tracer + meter; honour OTEL_LOGS_EXPORTER (none|otlp|stdout). Gate.Record gains a single Emit() call after the existing append path so JSONL stays the durable local copy. Tests: stdout exporter renders each record; no-op provider absorbs silently; redaction — no raw query/response bodies in attrs (hashes only).",
-      "priority": "high",
-      "estimate": "6h",
-      "depends_on": null,
-      "feature_id": "audit-otel-logs",
-      "source": {}
-    },
-    {
-      "id": "v03-tool-filter-adopt",
-      "title": "Adopt mcp-go ToolFilter when #92 ships",
-      "description": "Watch mcp-go #92 throughout v0.3 cycle. On merge + release: bump dep, replace internal/server/tool_filter.go with `mcp.WithMiddleware(mcp.ToolFilter(mayList))` one-liner, delete the wrapper + tool_filter_test.go (replaced by mcp-go's coverage). If unmerged at freeze: skip, document, file follow-up. Bonus stretch: open mcp-go ResourceFilter + PromptFilter PRs.",
-      "priority": "low",
       "estimate": "3h",
       "depends_on": null,
-      "feature_id": "tool-filter-adopt",
+      "feature_id": "cache-metrics",
       "source": {}
     },
     {
-      "id": "v03-schema-diff-alerts",
-      "title": "Schema diff alerts + schema_diff MCP tool",
-      "description": "internal/schema/diff.go: compare two *Schema instances, return added/removed/changed type names with a kind flag (additive vs breaking). runtime.refreshEntry calls Diff() against the previous SDL, persists last-N diffs in meta, emits log + metric `scry.schema.changes_total{kind}`. New MCP tool schema_diff(server, limit) returns the last N diffs. Tests: identical schemas → empty diff; added field → additive; removed field → breaking; changed required arg → breaking.",
+      "id": "v04-fuzz-tests",
+      "title": "Fuzz harness for ParseSDL, gate.Classify, cache.Key",
+      "description": "Three FuzzXxx funcs in their respective packages: FuzzParseSDL (random bytes → ParseSDL must not panic), FuzzClassify (random strings → Classify always returns one of three Effects), FuzzCacheKey (random inputs → Key is deterministic + collision-free for distinct inputs). Build-tagged via go test -fuzz pattern. Nightly CI workflow (.github/workflows/fuzz.yml) runs each for 5min. Crashers go into testdata/fuzz/\u003cfunc\u003e/.",
+      "priority": "medium",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "fuzz-tests",
+      "source": {}
+    },
+    {
+      "id": "v04-federation-aware",
+      "title": "Detect Apollo federated upstreams + tag subgraphs in search",
+      "description": "1) schema.IntrospectFederation(): probe `{ _service { sdl } }` after the normal introspection; on success, parse the returned SDL with @key/@external directive awareness. 2) schema.SearchUnit gains a Subgraph string field. 3) runtime.refreshEntry calls federation probe; populates Subgraph on each unit when present. 4) renderSearchResults shows subgraph in markdown table. 5) Test: stub upstream returning federated SDL → units carry subgraph; non-federated upstream → Subgraph empty (no regression).",
       "priority": "medium",
       "estimate": "10h",
       "depends_on": [
-        "v03-audit-otel-logs"
+        "v04-cache-metrics"
       ],
-      "feature_id": "schema-diff-alerts",
+      "feature_id": "federation-aware",
       "source": {}
     },
     {
-      "id": "v03-query-result-cache",
-      "title": "TTL query result cache",
-      "description": "internal/cache package with TTL-bounded Get/Set per upstream entry. Key = SHA-256(query|variables|operationName). Wired into query_execute: bypass for effect=write, otherwise check cache before upstream call. On hit: recordOutcome(\"ok_cached\", ...), gate.Record with outcome=ok_cached so chain stays accurate, return cached body. On miss: run upstream + Set on success. Operator knobs: --cache-ttl (default 30s, 0 disables), --cache-max-entries (default 1000). Metric: `scry.cache.{hits,misses}_total{server}`. Tests: TTL expiry, mutation bypass, max-entries LRU eviction, hit + miss metrics, audit chain contains cached entries.",
+      "id": "v04-persisted-queries",
+      "title": "Persisted query storage + CLI + tool integration",
+      "description": "1) internal/pq package: per-server hash→query Store backed by SQLite (reuse schema.Store DB; add `pq` table). Get(hash), Put(name, query), Delete(hashOrName), List(). 2) cmd/scry/pq.go: subcommand wiring `scry pq add/list/remove \u003cserver\u003e`. 3) internal/server/query_tools.go: ExecuteInput gains `Hash` string; mutually exclusive with `Query`. On hash: pq.Get → forward as query. Audit chain records both hash + query_hash (so external auditors can correlate). 4) Tests: roundtrip via CLI, hash lookup in execute, missing hash returns pq_not_found envelope, conflict (both args) rejected.",
       "priority": "high",
-      "estimate": "10h",
+      "estimate": "12h",
       "depends_on": [
-        "v03-anchor-sidecar"
+        "v04-cache-metrics"
       ],
-      "feature_id": "query-result-cache",
+      "feature_id": "persisted-queries",
       "source": {}
     },
     {
-      "id": "v03-changelog-and-release",
-      "title": "CHANGELOG sweep + tag v0.3.0",
-      "description": "Promote Unreleased into ## 0.3.0 section. Add/Changed/Fixed groups. README badge updates if version-pinned. Final `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...`. Tag v0.3.0 + push. Release workflow auto-publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, brew formula bumps too.",
+      "id": "v04-mtls-identity",
+      "title": "mTLS subject CN → MCP Identity middleware",
+      "description": "1) internal/server/mtls_identity.go: HTTP middleware that reads req.TLS.PeerCertificates[0]. If non-empty: build Identity{ID: subjectCN, Name: subjectCN}, store via mcp.ContextWithIdentity. 2) buildServeOpts wires this middleware BEFORE BearerAuth so mTLS identity takes precedence when both are presented. 3) Tests: synthesised request with PeerCertificates → identity in context matches CN; no cert → middleware no-ops, BearerAuth proceeds; both cert + bearer → cert wins.",
+      "priority": "medium",
+      "estimate": "8h",
+      "depends_on": [
+        "v04-cache-metrics"
+      ],
+      "feature_id": "mtls-identity",
+      "source": {}
+    },
+    {
+      "id": "v04-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.4.0",
+      "description": "Move v0.4 work from Unreleased into dated section. Added/Changed groups. README badge updates if version-pinned. `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.4.0 + push. Release workflow auto-publishes via goreleaser.",
       "priority": "high",
       "estimate": "2h",
       "depends_on": [
-        "v03-anchor-sidecar",
-        "v03-audit-otel-logs",
-        "v03-tool-filter-adopt",
-        "v03-schema-diff-alerts",
-        "v03-query-result-cache"
+        "v04-cache-metrics",
+        "v04-fuzz-tests",
+        "v04-federation-aware",
+        "v04-persisted-queries",
+        "v04-mtls-identity"
       ],
       "feature_id": "core-foundation",
       "source": {}
@@ -106,18 +108,6 @@
       "source": {}
     },
     {
-      "id": "v02-deployment-guide",
-      "title": "Docker + systemd + Kubernetes deployment artefacts",
-      "description": "Three new files: docs/deployment/docker.md + Dockerfile (multi-stage, distroless final, non-root UID, ENTRYPOINT scry serve); docs/deployment/systemd.md + scry.service template with PrivateTmp/ProtectSystem=strict/NoNewPrivileges/ReadWritePaths-pin-to-audit-dir; docs/deployment/kubernetes.md + manifests/k8s/{deployment,configmap,secret,service,hpa}.yaml with readiness probe = `scry doctor`, resource limits, run-as non-root, fsGroup for audit volume. Smoke: docker build succeeds, image runs `scry version`. k8s manifests apply on kind cluster.",
-      "priority": "medium",
-      "estimate": "12h",
-      "depends_on": [
-        "v02-scry-doctor"
-      ],
-      "feature_id": "deployment-guide",
-      "source": {}
-    },
-    {
       "id": "v02-tool-filter-upstream",
       "title": "Adopt mcp-go ToolFilter once #90 ships (or upstream the PR)",
       "description": "Check status of mcp-go #90 weekly through v0.2 cycle. If merged + released: bump dep, swap internal/server/tool_filter.go for the upstream-provided `mcp.ToolFilter(predicate) Middleware`, delete the wrapper. If still open at v0.2 freeze: open a PR against mcp-go ourselves with the internal/server/tool_filter.go implementation refactored to use typed handler internals. Acceptance: scry doesn't ship its own tool-list filter middleware by v0.2.0.",
@@ -125,16 +115,6 @@
       "estimate": "3h",
       "depends_on": null,
       "feature_id": "tool-filter-upstream",
-      "source": {}
-    },
-    {
-      "id": "v02-per-server-rate-limit",
-      "title": "Wire fortify rate limiter per server",
-      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
-      "priority": "high",
-      "estimate": "5h",
-      "depends_on": null,
-      "feature_id": "per-server-rate-limit",
       "source": {}
     },
     {
@@ -148,15 +128,73 @@
       "source": {}
     },
     {
-      "id": "v02-scry-doctor",
-      "title": "scry doctor diagnostic CLI",
-      "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
+      "id": "v03-anchor-sidecar",
+      "title": "Audit chain anchor sidecar closes truncation gap",
+      "description": "Write \u003csession\u003e.anchor next to the JSONL files holding the ChainHash of the oldest-still-retained record. On rotation truncation, refresh the anchor to point at the new oldest record. On load, read the anchor and use it as the initial prev-hash so VerifyChain succeeds end-to-end even after archives drop. Tests: keep=3 truncate-then-verify case from v0.2's TestAuditRotationKeepTruncatesAndDocumentsBoundary now passes cleanly; anchor file 0600 perms; missing anchor falls back to current behaviour (genesis prev=\"\").",
+      "priority": "high",
+      "estimate": "8h",
+      "depends_on": null,
+      "feature_id": "anchor-sidecar",
+      "source": {}
+    },
+    {
+      "id": "v03-tool-filter-adopt",
+      "title": "Adopt mcp-go ToolFilter when #92 ships",
+      "description": "Watch mcp-go #92 throughout v0.3 cycle. On merge + release: bump dep, replace internal/server/tool_filter.go with `mcp.WithMiddleware(mcp.ToolFilter(mayList))` one-liner, delete the wrapper + tool_filter_test.go (replaced by mcp-go's coverage). If unmerged at freeze: skip, document, file follow-up. Bonus stretch: open mcp-go ResourceFilter + PromptFilter PRs.",
+      "priority": "low",
+      "estimate": "3h",
+      "depends_on": null,
+      "feature_id": "tool-filter-adopt",
+      "source": {}
+    },
+    {
+      "id": "v03-query-result-cache",
+      "title": "TTL query result cache",
+      "description": "internal/cache package with TTL-bounded Get/Set per upstream entry. Key = SHA-256(query|variables|operationName). Wired into query_execute: bypass for effect=write, otherwise check cache before upstream call. On hit: recordOutcome(\"ok_cached\", ...), gate.Record with outcome=ok_cached so chain stays accurate, return cached body. On miss: run upstream + Set on success. Operator knobs: --cache-ttl (default 30s, 0 disables), --cache-max-entries (default 1000). Metric: `scry.cache.{hits,misses}_total{server}`. Tests: TTL expiry, mutation bypass, max-entries LRU eviction, hit + miss metrics, audit chain contains cached entries.",
       "priority": "high",
       "estimate": "10h",
       "depends_on": [
-        "v02-audit-rotation"
+        "v03-anchor-sidecar"
       ],
-      "feature_id": "scry-doctor",
+      "feature_id": "query-result-cache",
+      "source": {}
+    },
+    {
+      "id": "v03-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.3.0",
+      "description": "Promote Unreleased into ## 0.3.0 section. Add/Changed/Fixed groups. README badge updates if version-pinned. Final `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...`. Tag v0.3.0 + push. Release workflow auto-publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, brew formula bumps too.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v03-anchor-sidecar",
+        "v03-audit-otel-logs",
+        "v03-tool-filter-adopt",
+        "v03-schema-diff-alerts",
+        "v03-query-result-cache"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    },
+    {
+      "id": "v02-deployment-guide",
+      "title": "Docker + systemd + Kubernetes deployment artefacts",
+      "description": "Three new files: docs/deployment/docker.md + Dockerfile (multi-stage, distroless final, non-root UID, ENTRYPOINT scry serve); docs/deployment/systemd.md + scry.service template with PrivateTmp/ProtectSystem=strict/NoNewPrivileges/ReadWritePaths-pin-to-audit-dir; docs/deployment/kubernetes.md + manifests/k8s/{deployment,configmap,secret,service,hpa}.yaml with readiness probe = `scry doctor`, resource limits, run-as non-root, fsGroup for audit volume. Smoke: docker build succeeds, image runs `scry version`. k8s manifests apply on kind cluster.",
+      "priority": "medium",
+      "estimate": "12h",
+      "depends_on": [
+        "v02-scry-doctor"
+      ],
+      "feature_id": "deployment-guide",
+      "source": {}
+    },
+    {
+      "id": "v02-per-server-rate-limit",
+      "title": "Wire fortify rate limiter per server",
+      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
+      "priority": "high",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "per-server-rate-limit",
       "source": {}
     },
     {
@@ -177,9 +215,43 @@
       ],
       "feature_id": "core-foundation",
       "source": {}
+    },
+    {
+      "id": "v03-audit-otel-logs",
+      "title": "Emit each Evidence record as an OTel log",
+      "description": "internal/obs/audit.go: thin wrapper that converts an Evidence record to an OTel LogRecord (timestamp, body=summary, attrs={server, effect, complexity, outcome, query_hash, response_hash, chain_hash, session}). Init in cmd/scry/main.go alongside tracer + meter; honour OTEL_LOGS_EXPORTER (none|otlp|stdout). Gate.Record gains a single Emit() call after the existing append path so JSONL stays the durable local copy. Tests: stdout exporter renders each record; no-op provider absorbs silently; redaction — no raw query/response bodies in attrs (hashes only).",
+      "priority": "high",
+      "estimate": "6h",
+      "depends_on": null,
+      "feature_id": "audit-otel-logs",
+      "source": {}
+    },
+    {
+      "id": "v03-schema-diff-alerts",
+      "title": "Schema diff alerts + schema_diff MCP tool",
+      "description": "internal/schema/diff.go: compare two *Schema instances, return added/removed/changed type names with a kind flag (additive vs breaking). runtime.refreshEntry calls Diff() against the previous SDL, persists last-N diffs in meta, emits log + metric `scry.schema.changes_total{kind}`. New MCP tool schema_diff(server, limit) returns the last N diffs. Tests: identical schemas → empty diff; added field → additive; removed field → breaking; changed required arg → breaking.",
+      "priority": "medium",
+      "estimate": "10h",
+      "depends_on": [
+        "v03-audit-otel-logs"
+      ],
+      "feature_id": "schema-diff-alerts",
+      "source": {}
+    },
+    {
+      "id": "v02-scry-doctor",
+      "title": "scry doctor diagnostic CLI",
+      "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": [
+        "v02-audit-rotation"
+      ],
+      "feature_id": "scry-doctor",
+      "source": {}
     }
   ],
   "approval_status": "approved",
   "created_at": "2026-05-18T07:10:11.363203+02:00",
-  "updated_at": "2026-05-18T09:50:35.909043+02:00"
+  "updated_at": "2026-05-18T11:21:18.109436+02:00"
 }

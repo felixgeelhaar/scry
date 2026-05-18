@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 31,
+  "version": 38,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -124,16 +124,26 @@
       "elapsed_minutes": 4
     },
     "v03-changelog-and-release": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "v03-query-result-cache": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "tag v0.3.0 + GH release https://github.com/felixgeelhaar/scry/releases/tag/v0.3.0 + commit db6e4a4"
+      ],
+      "started_at": "2026-05-18T10:13:29.121218+02:00",
+      "completed_at": "2026-05-18T10:18:17.825494+02:00",
+      "elapsed_minutes": 4
+    },
+    "v03-query-result-cache": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit d2020dd"
+      ],
       "started_at": "2026-05-18T10:07:52.47282+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-18T10:12:46.645375+02:00",
+      "elapsed_minutes": 4
     },
     "v03-schema-diff-alerts": {
       "status": "done",
@@ -147,10 +157,48 @@
       "elapsed_minutes": 5
     },
     "v03-tool-filter-adopt": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "mcp-go PR #92 closed unmerged by maintainer. Internal wrapper internal/server/tool_filter.go stays for v0.3. Deferred to v0.4 — revisit after a maintainer follow-up."
+      ],
+      "started_at": "2026-05-18T10:13:00.95976+02:00",
+      "completed_at": "2026-05-18T10:13:12.851733+02:00",
+      "elapsed_minutes": 0
+    },
+    "v04-cache-metrics": {
+      "status": "in_progress",
+      "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-18T11:21:44.721437+02:00",
+      "elapsed_minutes": 0
+    },
+    "v04-changelog-and-release": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v04-federation-aware": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v04-fuzz-tests": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v04-mtls-identity": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v04-persisted-queries": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T10:07:52.47282+02:00"
+  "updated_at": "2026-05-18T11:21:44.721437+02:00"
 }

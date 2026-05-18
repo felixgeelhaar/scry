@@ -1,44 +1,44 @@
 {
   "id": "scry",
   "title": "scry",
-  "description": "Searchable GraphQL ↔ MCP bridge for AI agents. Connects to one or many\nGraphQL endpoints, introspects each schema, builds a per-upstream SQLite\n+ FTS5 + BM25 index, and exposes ten+ MCP tools an agent can call.\nv0.1 shipped core; v0.2 hardened deployment + audit + credential\nhandling for hosted fleets; v0.3 closes the audit trust loop and\nadds smarter performance / change-detection knobs.\n",
+  "description": "Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;\nv0.2 hardened deployment; v0.3 closed the audit + caching loop;\nv0.4 sharpens the dedupe / discoverability / identity stories\n(\"Agent economics\" — making each upstream call count more).\n",
   "features": [
     {
-      "id": "anchor-sidecar",
-      "title": "Audit chain anchor sidecar",
-      "description": "v0.2's rotation drops the prev-hash of the surviving chain head\nwhen --audit-keep \u003e 0, so VerifyChain trips at index 0 after a\ntruncation. Right fix: write a per-session anchor sidecar\n(\u003csession\u003e.anchor) carrying the ChainHash of the last record in\nthe oldest still-retained archive. Verification reads the\nanchor on load and uses it as the genesis prev-hash, so the\nwhole surviving chain validates end-to-end. Closes the\ndocumented v0.2 trade-off in\nTestAuditRotationKeepTruncatesAndDocumentsBoundary.\n",
+      "id": "persisted-queries",
+      "title": "Persisted queries (hash → query indirection)",
+      "description": "Operator pre-registers expensive queries via CLI; scry stores\nthe SHA-256(query) → query text map per upstream. Agents call\n`query_execute(server, hash=\"...\")` instead of pushing the full\nquery string every time. Cuts agent context budget + upstream\npayload + audit chain footprint for known-shape workloads\n(dashboards, batch ETL, recurring planner calls).\n\nCLI:\n  scry pq add \u003cserver\u003e \u003cname\u003e --file query.graphql\n  scry pq list \u003cserver\u003e\n  scry pq remove \u003cserver\u003e \u003chash|name\u003e\n\nStorage: per-server SQLite table in the existing index DB so\nhashes + bodies survive restarts + replicate with the schema\nindex. Hot-reload on `pq add` (no MCP reconnect needed).\n\nMapping precedence in query_execute: `hash` arg wins → look up,\n404 if missing. `query` arg → existing path. Both → conflict\nerror.\n",
       "requirements": [],
       "source": {}
     },
     {
-      "id": "audit-otel-logs",
-      "title": "OTel logs bridge for audit chain",
-      "description": "Emit each Evidence record as an OTel log alongside the JSONL\nfile when OTEL_LOGS_EXPORTER is set. Lets operators ship audit\nto Splunk / Datadog / Loki / any OTLP-receiving SIEM without\nscry-specific shipping code. JSONL stays as the durable\nlocal-first record; OTel is the streaming sink.\nImplementation: thin wrapper in obs/audit.go that constructs\nan LogRecord per Evidence + emits via the configured logger\nprovider. Falls back to no-op when the exporter is unset.\n",
+      "id": "federation-aware",
+      "title": "Apollo federation awareness in schema search",
+      "description": "Detect federated upstreams (probe `_service { sdl }` during\nintrospection). When present, parse the subgraph SDL and tag\neach type/field with its subgraph name. schema_search renders\nthe subgraph tag alongside results so agents see which subgraph\nowns a `Customer.email` vs `Customer.preferredCarrier`.\n\nCross-subgraph queries still hit the federated gateway URL the\noperator configured; scry doesn't reroute or compose. Just\nsurfaces ownership.\n",
       "requirements": [],
       "source": {}
     },
     {
-      "id": "tool-filter-adopt",
-      "title": "Adopt mcp-go ToolFilter once PR",
-      "description": "mcp-go PR #92 introduces a first-party ToolFilter middleware.\nWhen it merges + releases: bump the mcp-go dep, replace\ninternal/server/tool_filter.go with one-liner usage of\nmcp.ToolFilter(predicate), delete the wrapper + its tests\n(replaced by mcp-go's own coverage). If still pending at v0.3\nfreeze: leave internal wrapper, document the deferral.\nBonus: file ResourceFilter + PromptFilter follow-up PRs once\nToolFilter lands.\n",
+      "id": "cache-metrics",
+      "title": "Per-server cache hit/miss metrics",
+      "description": "v0.3 shipped the result cache without metric instrumentation.\nAdd `scry.cache.hits_total{server}` + `scry.cache.misses_total{server}`\ncounters wired through query_execute. Bypass calls (mutations\neffect=write) don't increment either. Operators wire to their\nmonitor; agents now have a feedback signal on whether their\ndedupe is working.\n",
       "requirements": [],
       "source": {}
     },
     {
-      "id": "schema-diff-alerts",
-      "title": "Schema diff alerting on refresh",
-      "description": "Today's background refresh swaps the cached schema silently —\noperators only notice schema breaks when a cached query\nsuddenly fails validation. Detect changes: hash the SDL before\n+ after refresh; on mismatch, compute a summary diff (added /\nremoved / changed types) via gqlparser, emit a structured log\nevent `schema.changed` + an OTel metric\n`scry.schema.changes_total{kind=added|removed|breaking}`.\nOperators wire that to their alerting (Datadog monitor,\nPrometheus rule). New MCP tool `schema_diff(server, limit)`\nsurfaces the last N changes for agents that want to plan\naround them.\n",
+      "id": "fuzz-tests",
+      "title": "gqlparser / gate / cache fuzz harness",
+      "description": "Build-tagged fuzz tests over the GraphQL parsing surface:\n`schema.ParseSDL`, `gate.Classify`, `cache.Key`. Run with\n`go test -fuzz` locally + a nightly CI workflow that fuzzes\nfor 5 minutes per target. Catches crashes from adversarial\ninputs (malformed SDL, weird unicode in queries, gigantic\noperationName) before they reach prod.\n\nDiscovered crashers go into testdata/fuzz/ for replay; nightly\nrun is non-blocking on PRs.\n",
       "requirements": [],
       "source": {}
     },
     {
-      "id": "query-result-cache",
-      "title": "TTL query result cache",
-      "description": "Many agents call the same query repeatedly during a task (re-\nvalidating context). Add a per-server in-memory cache keyed by\nSHA-256(query+variables+operationName), with TTL set via\n--cache-ttl (default 30s, 0 disables). Mutations bypass\nunconditionally (effect=write). Cache hits skip upstream +\nrecord evidence with outcome=ok_cached so audit + metrics\ndistinguish cache vs upstream. Eviction: simple max-entries\nLRU when --cache-max-entries is set; otherwise unbounded for\nTTL semantics only.\n",
+      "id": "mtls-identity",
+      "title": "mTLS subject → MCP Identity propagation",
+      "description": "When --mtls-ca is set + the transport receives a verified\nclient cert, extract the subject CN (plus first DNS SAN as\nfallback) and surface it as `Identity.Name` in the MCP\nrequest context. Lets clients.yml scope by cert subject\ninstead of (or alongside) a shared-secret token —\nservice-mesh deployments where identity already lives in\nSPIFFE/X509 certs get a native authorisation path.\n\nImplementation: HTTP middleware that wraps the transport\nhandler chain and writes the cert-derived Identity onto\nctx before the BearerAuth middleware runs. Bearer + mTLS\ncompose: if both present, mTLS subject wins (the cert is\nthe strong identity).\n",
       "requirements": [],
       "source": {}
     }
   ],
   "constraints": [],
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

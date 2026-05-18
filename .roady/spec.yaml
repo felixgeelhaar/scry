@@ -1,81 +1,90 @@
 id: scry
 title: scry
 description: |
-  Searchable GraphQL ↔ MCP bridge for AI agents. Connects to one or many
-  GraphQL endpoints, introspects each schema, builds a per-upstream SQLite
-  + FTS5 + BM25 index, and exposes ten+ MCP tools an agent can call.
-  v0.1 shipped core; v0.2 hardened deployment + audit + credential
-  handling for hosted fleets; v0.3 closes the audit trust loop and
-  adds smarter performance / change-detection knobs.
+  Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;
+  v0.2 hardened deployment; v0.3 closed the audit + caching loop;
+  v0.4 sharpens the dedupe / discoverability / identity stories
+  ("Agent economics" — making each upstream call count more).
 features:
-  - id: anchor-sidecar
-    title: Audit chain anchor sidecar
+  - id: persisted-queries
+    title: Persisted queries (hash → query indirection)
     description: |
-      v0.2's rotation drops the prev-hash of the surviving chain head
-      when --audit-keep > 0, so VerifyChain trips at index 0 after a
-      truncation. Right fix: write a per-session anchor sidecar
-      (<session>.anchor) carrying the ChainHash of the last record in
-      the oldest still-retained archive. Verification reads the
-      anchor on load and uses it as the genesis prev-hash, so the
-      whole surviving chain validates end-to-end. Closes the
-      documented v0.2 trade-off in
-      TestAuditRotationKeepTruncatesAndDocumentsBoundary.
+      Operator pre-registers expensive queries via CLI; scry stores
+      the SHA-256(query) → query text map per upstream. Agents call
+      `query_execute(server, hash="...")` instead of pushing the full
+      query string every time. Cuts agent context budget + upstream
+      payload + audit chain footprint for known-shape workloads
+      (dashboards, batch ETL, recurring planner calls).
+
+      CLI:
+        scry pq add <server> <name> --file query.graphql
+        scry pq list <server>
+        scry pq remove <server> <hash|name>
+
+      Storage: per-server SQLite table in the existing index DB so
+      hashes + bodies survive restarts + replicate with the schema
+      index. Hot-reload on `pq add` (no MCP reconnect needed).
+
+      Mapping precedence in query_execute: `hash` arg wins → look up,
+      404 if missing. `query` arg → existing path. Both → conflict
+      error.
     requirements: []
 
-  - id: audit-otel-logs
-    title: OTel logs bridge for audit chain
+  - id: federation-aware
+    title: Apollo federation awareness in schema search
     description: |
-      Emit each Evidence record as an OTel log alongside the JSONL
-      file when OTEL_LOGS_EXPORTER is set. Lets operators ship audit
-      to Splunk / Datadog / Loki / any OTLP-receiving SIEM without
-      scry-specific shipping code. JSONL stays as the durable
-      local-first record; OTel is the streaming sink.
-      Implementation: thin wrapper in obs/audit.go that constructs
-      an LogRecord per Evidence + emits via the configured logger
-      provider. Falls back to no-op when the exporter is unset.
+      Detect federated upstreams (probe `_service { sdl }` during
+      introspection). When present, parse the subgraph SDL and tag
+      each type/field with its subgraph name. schema_search renders
+      the subgraph tag alongside results so agents see which subgraph
+      owns a `Customer.email` vs `Customer.preferredCarrier`.
+
+      Cross-subgraph queries still hit the federated gateway URL the
+      operator configured; scry doesn't reroute or compose. Just
+      surfaces ownership.
     requirements: []
 
-  - id: tool-filter-adopt
-    title: Adopt mcp-go ToolFilter once PR #92 ships
+  - id: cache-metrics
+    title: Per-server cache hit/miss metrics
     description: |
-      mcp-go PR #92 introduces a first-party ToolFilter middleware.
-      When it merges + releases: bump the mcp-go dep, replace
-      internal/server/tool_filter.go with one-liner usage of
-      mcp.ToolFilter(predicate), delete the wrapper + its tests
-      (replaced by mcp-go's own coverage). If still pending at v0.3
-      freeze: leave internal wrapper, document the deferral.
-      Bonus: file ResourceFilter + PromptFilter follow-up PRs once
-      ToolFilter lands.
+      v0.3 shipped the result cache without metric instrumentation.
+      Add `scry.cache.hits_total{server}` + `scry.cache.misses_total{server}`
+      counters wired through query_execute. Bypass calls (mutations
+      effect=write) don't increment either. Operators wire to their
+      monitor; agents now have a feedback signal on whether their
+      dedupe is working.
     requirements: []
 
-  - id: schema-diff-alerts
-    title: Schema diff alerting on refresh
+  - id: fuzz-tests
+    title: gqlparser / gate / cache fuzz harness
     description: |
-      Today's background refresh swaps the cached schema silently —
-      operators only notice schema breaks when a cached query
-      suddenly fails validation. Detect changes: hash the SDL before
-      + after refresh; on mismatch, compute a summary diff (added /
-      removed / changed types) via gqlparser, emit a structured log
-      event `schema.changed` + an OTel metric
-      `scry.schema.changes_total{kind=added|removed|breaking}`.
-      Operators wire that to their alerting (Datadog monitor,
-      Prometheus rule). New MCP tool `schema_diff(server, limit)`
-      surfaces the last N changes for agents that want to plan
-      around them.
+      Build-tagged fuzz tests over the GraphQL parsing surface:
+      `schema.ParseSDL`, `gate.Classify`, `cache.Key`. Run with
+      `go test -fuzz` locally + a nightly CI workflow that fuzzes
+      for 5 minutes per target. Catches crashes from adversarial
+      inputs (malformed SDL, weird unicode in queries, gigantic
+      operationName) before they reach prod.
+
+      Discovered crashers go into testdata/fuzz/ for replay; nightly
+      run is non-blocking on PRs.
     requirements: []
 
-  - id: query-result-cache
-    title: TTL query result cache
+  - id: mtls-identity
+    title: mTLS subject → MCP Identity propagation
     description: |
-      Many agents call the same query repeatedly during a task (re-
-      validating context). Add a per-server in-memory cache keyed by
-      SHA-256(query+variables+operationName), with TTL set via
-      --cache-ttl (default 30s, 0 disables). Mutations bypass
-      unconditionally (effect=write). Cache hits skip upstream +
-      record evidence with outcome=ok_cached so audit + metrics
-      distinguish cache vs upstream. Eviction: simple max-entries
-      LRU when --cache-max-entries is set; otherwise unbounded for
-      TTL semantics only.
+      When --mtls-ca is set + the transport receives a verified
+      client cert, extract the subject CN (plus first DNS SAN as
+      fallback) and surface it as `Identity.Name` in the MCP
+      request context. Lets clients.yml scope by cert subject
+      instead of (or alongside) a shared-secret token —
+      service-mesh deployments where identity already lives in
+      SPIFFE/X509 certs get a native authorisation path.
+
+      Implementation: HTTP middleware that wraps the transport
+      handler chain and writes the cert-derived Identity onto
+      ctx before the BearerAuth middleware runs. Bearer + mTLS
+      compose: if both present, mTLS subject wins (the cert is
+      the strong identity).
     requirements: []
 constraints: []
-version: 0.3.0
+version: 0.4.0

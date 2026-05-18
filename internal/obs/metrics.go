@@ -38,6 +38,8 @@ type ScryMeters struct {
 	IntrospectErrors  metric.Int64Counter
 	UpstreamLatency   metric.Float64Histogram
 	SchemaChanges     metric.Int64Counter
+	CacheHits         metric.Int64Counter
+	CacheMisses       metric.Int64Counter
 }
 
 // InitMeter sets up the global meter provider based on the OTEL
@@ -112,6 +114,12 @@ func Metrics() ScryMeters {
 		mustMetric(err)
 		meters.SchemaChanges, err = m.Int64Counter("scry.schema.changes_total",
 			metric.WithDescription("Schema changes detected on refresh, by server + kind (added|removed|breaking)"))
+		mustMetric(err)
+		meters.CacheHits, err = m.Int64Counter("scry.cache.hits_total",
+			metric.WithDescription("Read-query cache hits, by server"))
+		mustMetric(err)
+		meters.CacheMisses, err = m.Int64Counter("scry.cache.misses_total",
+			metric.WithDescription("Read-query cache misses (full upstream call), by server"))
 		mustMetric(err)
 	})
 	return meters
