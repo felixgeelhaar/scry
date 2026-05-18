@@ -16,6 +16,10 @@ import (
 //
 // gate_chain returns the audit chain itself — meant for debugging
 // and external audit-pipeline consumers, not normal agent use.
+// Returns an error for symmetry with the other register*Tools
+// funcs; today no tool wiring can fail.
+//
+//nolint:unparam // see registerAuthTools rationale
 func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 	type Empty struct{}
 	srv.Tool("gate_status").

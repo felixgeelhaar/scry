@@ -179,7 +179,7 @@ func fieldUnit(parent Type, f Field) SearchUnit {
 	return SearchUnit{
 		Kind:        "field",
 		Name:        parent.Name + "." + f.Name,
-		ParentType: parent.Name,
+		ParentType:  parent.Name,
 		Description: f.Description,
 		Signature:   sig,
 		SDL:         sig,

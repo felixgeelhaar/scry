@@ -64,6 +64,10 @@ func New(cfg Config) (*Client, error) {
 	if cfg.MaxRetries == 0 {
 		cfg.MaxRetries = 3
 	}
+	// Fortify's HTTPClient returns a typed Chain[*http.Response], not
+	// an open response — bodyclose's pattern-match for *http.Response
+	// here is a false positive.
+	//nolint:bodyclose // resilience-chain constructor, not an HTTP response
 	chain, err := middleware.HTTPClient(middleware.HTTPClientConfig{
 		Timeout:    cfg.Timeout,
 		MaxRetries: cfg.MaxRetries,
@@ -99,17 +103,17 @@ type Result struct {
 	Raw    json.RawMessage
 }
 
-// AuthError is returned when the upstream responds with 401. Carries
-// through to the MCP tool so the agent can call auth_login per the
-// auth-design.md recovery loop.
-var AuthError = errors.New("upstream: auth expired")
+// ErrAuthExpired is returned when the upstream responds with 401.
+// Carries through to the MCP tool so the agent can call auth_login
+// per the auth-design.md recovery loop.
+var ErrAuthExpired = errors.New("upstream: auth expired")
 
 // Execute POSTs `query` (plus optional variables and operationName)
 // to the configured endpoint. Returns the upstream's raw response.
 // Transport-level retries are handled inside the fortify chain;
 // callers see the final outcome only.
 //
-// Returns AuthError specifically on 401 so the MCP layer can map it
+// Returns ErrAuthExpired specifically on 401 so the MCP layer can map it
 // to an auth_expired envelope; all other non-2xx responses surface
 // as ordinary errors with the upstream's body preview.
 func (c *Client) Execute(ctx context.Context, query string, variables map[string]any, opName string) (*Result, error) {
@@ -167,7 +171,7 @@ func (c *Client) Execute(ctx context.Context, query string, variables map[string
 	)
 	if resp.StatusCode == http.StatusUnauthorized {
 		span.SetStatus(codes.Error, "auth_expired")
-		return &Result{Status: resp.StatusCode, Raw: raw}, AuthError
+		return &Result{Status: resp.StatusCode, Raw: raw}, ErrAuthExpired
 	}
 	if resp.StatusCode/100 != 2 {
 		span.SetStatus(codes.Error, fmt.Sprintf("upstream %d", resp.StatusCode))

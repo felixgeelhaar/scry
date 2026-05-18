@@ -39,7 +39,7 @@ func ValidateQuery(sdl, query string) []ValidationError {
 	if err != nil {
 		return []ValidationError{{Message: "schema unavailable: " + err.Error()}}
 	}
-	_, qerr := gqlparser.LoadQuery(s, query)
+	_, qerr := gqlparser.LoadQueryWithRules(s, query, nil)
 	return flattenErrors(qerr)
 }
 
@@ -50,7 +50,7 @@ func LoadQuery(sdl, query string) (*ast.QueryDocument, []ValidationError) {
 	if err != nil {
 		return nil, []ValidationError{{Message: "schema unavailable: " + err.Error()}}
 	}
-	doc, qerr := gqlparser.LoadQuery(s, query)
+	doc, qerr := gqlparser.LoadQueryWithRules(s, query, nil)
 	if qerr != nil {
 		return nil, flattenErrors(qerr)
 	}

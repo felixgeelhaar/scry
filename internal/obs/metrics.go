@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
-	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 // meterName must match tracerName so collectors can filter by the
@@ -24,13 +24,13 @@ const meterName = tracerName
 
 var (
 	metersOnce sync.Once
-	meters     scryMeters
+	meters     ScryMeters
 )
 
-// scryMeters bundles every counter/histogram scry emits. Created
+// ScryMeters bundles every counter/histogram scry emits. Created
 // lazily on first call to Metrics() so tests that don't init the
 // meter provider still get usable no-op instruments.
-type scryMeters struct {
+type ScryMeters struct {
 	ExecuteCount      metric.Int64Counter
 	ExecuteDuration   metric.Float64Histogram
 	ExecuteComplexity metric.Int64Histogram
@@ -81,11 +81,11 @@ func InitMeter(ctx context.Context) (shutdown func(context.Context) error, err e
 	return mp.Shutdown, nil
 }
 
-// Metrics returns the package-level scryMeters. Lazily constructs
+// Metrics returns the package-level ScryMeters. Lazily constructs
 // instruments on first call so the meter provider can be set by
 // either InitMeter or a test override before instruments are
 // created.
-func Metrics() scryMeters {
+func Metrics() ScryMeters {
 	metersOnce.Do(func() {
 		m := otel.Meter(meterName)
 		var err error
@@ -139,12 +139,13 @@ func buildMetricExporter(ctx context.Context, kind string) (sdkmetric.Exporter, 
 // directly referenced here.
 var _ = metricdata.Temporality(0)
 
-// resetMetersForTest forces the next Metrics() call to rebuild
+// ResetMetersForTest forces the next Metrics() call to rebuild
 // instruments against whatever meter provider is currently set.
-// Used by tests that swap providers between cases.
-func resetMetersForTest() {
+// Exported so tests in sibling packages can reset between cases
+// without exposing the underlying sync.Once.
+func ResetMetersForTest() {
 	metersOnce = sync.Once{}
-	meters = scryMeters{}
+	meters = ScryMeters{}
 }
 
 // keep errors imported even when nothing uses it explicitly — it

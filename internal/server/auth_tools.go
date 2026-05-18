@@ -22,6 +22,12 @@ import (
 // exact CLI command the operator needs to run rather than trying to
 // drive the login over MCP. Device-code and PKCE flows that the
 // agent CAN drive are listed in docs/auth-design.md as Phase 2.
+// Returns an error for symmetry with the other register*Tools
+// funcs; today no tool wiring can fail, but keeping the signature
+// stable means a future tool that *does* validate at registration
+// time slots in without churning every call site.
+//
+//nolint:unparam // see comment above
 func registerAuthTools(srv *mcp.Server) error {
 	type StatusInput struct {
 		Server string `json:"server,omitempty" jsonschema:"description=optional server name; omit to list all"`
@@ -73,13 +79,13 @@ func registerAuthTools(srv *mcp.Server) error {
 			// instruction inline so the agent can relay it to the
 			// human via the MCP host UI.
 			enc, _ := json.MarshalIndent(map[string]any{
-				"status":     string(s.Status(in.Server, time.Now())),
-				"server":     in.Server,
-				"upstream":   srv.Upstream,
-				"auth_type":  "bearer",
-				"action":     "operator_run_cli",
-				"cli":        fmt.Sprintf("scry auth login %s --token <T>", in.Server),
-				"reason":     "v0 supports non-interactive bearer login only; OAuth device-code is Phase 2 (docs/auth-design.md).",
+				"status":    string(s.Status(in.Server, time.Now())),
+				"server":    in.Server,
+				"upstream":  srv.Upstream,
+				"auth_type": "bearer",
+				"action":    "operator_run_cli",
+				"cli":       fmt.Sprintf("scry auth login %s --token <T>", in.Server),
+				"reason":    "v0 supports non-interactive bearer login only; OAuth device-code is Phase 2 (docs/auth-design.md).",
 			}, "", "  ")
 			return string(enc), nil
 		})

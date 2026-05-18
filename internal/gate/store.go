@@ -23,8 +23,8 @@ import (
 type auditStore struct {
 	dir string
 
-	mu     sync.Mutex
-	files  map[SessionID]*os.File
+	mu      sync.Mutex
+	files   map[SessionID]*os.File
 	writers map[SessionID]*bufio.Writer
 }
 

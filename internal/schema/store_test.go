@@ -135,11 +135,11 @@ func TestStoreGetSDL(t *testing.T) {
 
 func TestFTSQuerySanitisesOperators(t *testing.T) {
 	cases := map[string]string{
-		"customer email":   `"customer"* "email"*`,
-		"":                 "",
-		"AND OR NEAR":      `"AND"* "OR"* "NEAR"*`,
-		"foo (bar) -baz":   `"foo"* "bar"* "baz"*`,
-		"Query.customer":   `"Query.customer"*`,
+		"customer email": `"customer"* "email"*`,
+		"":               "",
+		"AND OR NEAR":    `"AND"* "OR"* "NEAR"*`,
+		"foo (bar) -baz": `"foo"* "bar"* "baz"*`,
+		"Query.customer": `"Query.customer"*`,
 	}
 	for in, want := range cases {
 		if got := ftsQuery(in); got != want {

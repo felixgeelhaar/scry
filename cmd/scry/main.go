@@ -1,20 +1,20 @@
 // Command scry runs the scry MCP server and manages its credential
-// store. Connects to a single upstream GraphQL endpoint, introspects
-// its schema, and exposes five tools an AI agent can call:
-// schema_search, schema_get, query_validate, query_cost, query_execute.
+// store. Connects to one or many GraphQL endpoints, introspects each
+// schema, and exposes ten MCP tools an AI agent can call:
+// schema_search, schema_get, query_validate, query_cost,
+// query_execute, list_servers, auth_status, auth_login, gate_status,
+// gate_chain.
 //
 // Usage:
 //
-//	scry serve   --upstream <url> [--auth <token>]
+//	scry serve   --upstream <url> [--auth <token>] [--cost-ceiling N]
 //	scry servers list
 //	scry servers add    <name> --upstream <url>
 //	scry servers remove <name>
 //	scry auth login   <server> --token <T>
 //	scry auth logout  <server>
 //	scry auth status  [<server>]
-//
-// stdio is the only transport in v0 — designed to be wired as an MCP
-// server from Claude Code / Cursor / any MCP client.
+//	scry version
 package main
 
 import (
@@ -30,17 +30,22 @@ import (
 	"github.com/felixgeelhaar/scry/internal/version"
 )
 
+// main delegates to run() so deferred cleanup (tracer/meter shutdown,
+// signal-context cancel) always executes before the process exits.
+// Subcommand failures bubble up as exit codes instead of os.Exit
+// scattered across packages — keeps the OTel exporter from losing
+// the last batch of spans on a flag-validation error.
 func main() {
-	// Init log before anything else so even flag errors carry
-	// structured context. Format + level come from env so the same
-	// binary is at home in CI (JSON) and dev (console via
-	// SCRY_LOG=console).
+	os.Exit(run())
+}
+
+func run() int {
 	obs.Init("", os.Stderr)
 
-	// Init OTel tracer based on OTEL_TRACES_EXPORTER. Off by
-	// default (no-op provider); operators opt in via env so the
-	// happy path stays zero-dependency. Shutdown defers so the
-	// last batch of spans flushes on SIGTERM.
+	// Init OTel tracer + meter based on OTEL_* env. Off by default
+	// (no-op providers); operators opt in via env so the happy
+	// path stays zero-dependency. Shutdown defers so the last
+	// batch of spans + metrics flushes on graceful exit.
 	ctxInit, cancelInit := context.WithTimeout(context.Background(), 5*time.Second)
 	shutdownTracer, err := obs.InitTracer(ctxInit)
 	if err != nil {
@@ -60,23 +65,27 @@ func main() {
 
 	if len(os.Args) < 2 {
 		usage()
-		os.Exit(2)
+		return 2
 	}
 	switch os.Args[1] {
 	case "serve":
-		runServe(os.Args[2:])
+		return runServe(os.Args[2:])
 	case "servers":
 		runServers(os.Args[2:])
+		return 0
 	case "auth":
 		runAuth(os.Args[2:])
+		return 0
 	case "version", "-v", "--version":
 		fmt.Printf("scry %s\ncommit %s\nbuilt %s\n", version.Version, version.Commit, version.Date)
+		return 0
 	case "-h", "--help", "help":
 		usage()
+		return 0
 	default:
 		fmt.Fprintf(os.Stderr, "scry: unknown command %q\n\n", os.Args[1])
 		usage()
-		os.Exit(2)
+		return 2
 	}
 }
 
@@ -95,11 +104,11 @@ usage:
 `)
 }
 
-func runServe(args []string) {
+func runServe(args []string) int {
 	cfg, err := server.ParseFlags(args)
 	if err != nil {
 		obs.L.Error().Str("event", "boot.flags").Err(err).Msg("invalid serve flags")
-		os.Exit(2)
+		return 2
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -109,9 +118,10 @@ func runServe(args []string) {
 		// the second is what operators want to alert on.
 		if ctx.Err() != nil {
 			obs.L.Info().Str("event", "shutdown").Msg("scry exited cleanly on signal")
-			return
+			return 0
 		}
 		obs.L.Error().Str("event", "serve.fatal").Err(err).Msg("scry serve failed")
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

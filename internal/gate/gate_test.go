@@ -23,8 +23,8 @@ func TestClassifyDetectsMutationAndQuery(t *testing.T) {
 		`mutation Add { addBook(title: "x") { id } }`:       EffectWrite,
 		`subscription Watch { onUpdate { id } }`:            EffectSubscribe,
 		`query A { ping } mutation B { setX(v: 1) { id } }`: EffectWrite, // promoted
-		``:                                                  EffectRead,
-		`malformed garbage {{{`:                             EffectRead, // never silently escalate
+		``:                      EffectRead,
+		`malformed garbage {{{`: EffectRead, // never silently escalate
 	}
 	for q, want := range cases {
 		if got := Classify(q); got != want {

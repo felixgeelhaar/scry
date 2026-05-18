@@ -133,11 +133,11 @@ func (c *Clients) Validate() error {
 // runtime's known server names so handler-time checks are O(1)
 // map lookups.
 type Scope struct {
-	Name           string
-	AllowAllTools  bool
-	AllowedTools   map[string]bool
+	Name            string
+	AllowAllTools   bool
+	AllowedTools    map[string]bool
 	AllowAllServers bool
-	AllowedServers map[string]bool
+	AllowedServers  map[string]bool
 }
 
 // BuildScope returns the resolved Scope for one client. knownServers

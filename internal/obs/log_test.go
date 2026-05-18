@@ -71,6 +71,20 @@ func TestBuildHonoursLogLevel(t *testing.T) {
 	}
 }
 
+func TestResetMetersForTestRebuildsInstruments(t *testing.T) {
+	// Touching meters once populates them against whatever the
+	// current provider is.
+	_ = Metrics()
+	// Reset clears the cache so a subsequent call picks up a
+	// freshly-swapped provider — important for tests that swap
+	// providers between cases.
+	ResetMetersForTest()
+	m := Metrics()
+	if m.ExecuteCount == nil {
+		t.Errorf("expected ExecuteCount to be rebuilt after reset, got nil")
+	}
+}
+
 func TestSetForTestRoundtrip(t *testing.T) {
 	prev := L
 	var buf bytes.Buffer

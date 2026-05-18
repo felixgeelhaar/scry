@@ -25,6 +25,8 @@ import (
 // one. With multiple upstreams configured, omitting `server`
 // returns an unknown_server envelope listing the valid options so
 // the agent can pick.
+//
+//nolint:unparam // symmetry with other register*Tools — future wiring may fail
 func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) error {
 	_ = cfg
 	type SearchInput struct {

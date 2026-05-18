@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	// Pure-Go SQLite driver; registers itself with database/sql on import.
 	_ "modernc.org/sqlite"
 )
 

@@ -271,22 +271,22 @@ type Schema struct {
 // input, scalar, union. Kind drives downstream rendering: input
 // types appear in argument signatures; object types contain fields.
 type Type struct {
-	Kind          string      `json:"kind"`
-	Name          string      `json:"name"`
-	Description   string      `json:"description"`
-	Fields        []Field     `json:"fields"`
+	Kind          string       `json:"kind"`
+	Name          string       `json:"name"`
+	Description   string       `json:"description"`
+	Fields        []Field      `json:"fields"`
 	InputFields   []InputField `json:"inputFields"`
-	Interfaces    []TypeRef   `json:"interfaces"`
-	EnumValues    []EnumValue `json:"enumValues"`
-	PossibleTypes []TypeRef   `json:"possibleTypes"`
+	Interfaces    []TypeRef    `json:"interfaces"`
+	EnumValues    []EnumValue  `json:"enumValues"`
+	PossibleTypes []TypeRef    `json:"possibleTypes"`
 }
 
 // Field is one selectable field on an object/interface type.
 type Field struct {
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
 	Args        []InputField `json:"args"`
-	Type        TypeRef     `json:"type"`
+	Type        TypeRef      `json:"type"`
 }
 
 // InputField is a field on an input type OR an argument on a Field.

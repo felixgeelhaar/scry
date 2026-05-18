@@ -16,6 +16,8 @@ import (
 //
 // Returned shape gives agents everything they need to pick a target
 // before calling the per-server tools: name + upstream URL.
+//
+//nolint:unparam // symmetry with other register*Tools — future wiring may fail
 func registerRuntimeTools(srv *mcp.Server, mgr *runtime.Manager) error {
 	type Empty struct{}
 	srv.Tool("list_servers").

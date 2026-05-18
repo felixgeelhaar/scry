@@ -69,11 +69,11 @@ func TestLoadRefusesInsecurePerms(t *testing.T) {
 func TestStatusTrafficLight(t *testing.T) {
 	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
 	s := &Servers{Servers: map[string]Server{
-		"valid":     {Auth: Auth{Type: "bearer", Token: "t1", ExpiresAt: now.Add(24 * time.Hour)}},
-		"expiring":  {Auth: Auth{Type: "bearer", Token: "t2", ExpiresAt: now.Add(5 * time.Minute)}},
-		"expired":   {Auth: Auth{Type: "bearer", Token: "t3", ExpiresAt: now.Add(-1 * time.Hour)}},
-		"missing":   {Auth: Auth{Type: "bearer"}},
-		"noexpiry":  {Auth: Auth{Type: "bearer", Token: "t4"}},
+		"valid":    {Auth: Auth{Type: "bearer", Token: "t1", ExpiresAt: now.Add(24 * time.Hour)}},
+		"expiring": {Auth: Auth{Type: "bearer", Token: "t2", ExpiresAt: now.Add(5 * time.Minute)}},
+		"expired":  {Auth: Auth{Type: "bearer", Token: "t3", ExpiresAt: now.Add(-1 * time.Hour)}},
+		"missing":  {Auth: Auth{Type: "bearer"}},
+		"noexpiry": {Auth: Auth{Type: "bearer", Token: "t4"}},
 	}}
 	cases := map[string]Status{
 		"valid":    StatusValid,

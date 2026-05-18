@@ -22,6 +22,8 @@ import (
 // server via the Manager (legacy single-upstream callers can omit
 // the `server` argument); validates + cost-gates against the
 // cached schema; runs the upstream POST through fortify.
+//
+//nolint:unparam // symmetry with other register*Tools — future wiring may fail
 func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *gate.Gate) error {
 	type ExecuteInput struct {
 		Server        string         `json:"server,omitempty" jsonschema:"description=upstream server name (omit when only one is configured)"`
@@ -77,6 +79,11 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 				ev.Str("outcome", "unknown_server").Dur("dur", time.Since(start)).Send()
 				recordOutcome("unknown_server", in.Server, 0)
 				return errResp, nil
+			}
+			if denied := requireServerScope(ctx, entry.Name); denied != "" {
+				ev.Str("outcome", "permission_denied_server").Dur("dur", time.Since(start)).Send()
+				recordOutcome("permission_denied_server", entry.Name, 0)
+				return denied, nil
 			}
 			ev = ev.Str("server", entry.Name)
 
@@ -134,7 +141,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			}
 
 			res, err := entry.Client.Execute(ctx, in.Query, in.Variables, in.OperationName)
-			if errors.Is(err, upstream.AuthError) {
+			if errors.Is(err, upstream.ErrAuthExpired) {
 				ev.Str("outcome", "auth_expired").Int("status", statusOf(res)).Dur("dur", time.Since(start)).Send()
 				recordOutcome("auth_expired", entry.Name, complexity)
 				return renderExecuteError("auth_expired",

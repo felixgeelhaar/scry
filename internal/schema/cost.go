@@ -112,17 +112,10 @@ func walkSelectionSet(set ast.SelectionSet, depth int) (cost, maxDepth, fields, 
 // type (potentially wrapped in NON_NULL). Walks the gqlparser type
 // chain until either LIST or the leaf is found.
 func isListType(def *ast.FieldDefinition) bool {
-	if def == nil {
+	if def == nil || def.Type == nil {
 		return false
 	}
-	t := def.Type
-	for t != nil {
-		if t.Elem != nil {
-			return true
-		}
-		// gqlparser flattens NON_NULL into a flag on the same Type
-		// node, so there's no further chain to walk — bail.
-		return false
-	}
-	return false
+	// gqlparser flattens NON_NULL into a flag on the same Type
+	// node, so a single check is sufficient — no recursion.
+	return def.Type.Elem != nil
 }

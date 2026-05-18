@@ -55,7 +55,7 @@ func TestExecuteSendsQueryAndReturnsBody(t *testing.T) {
 	}
 }
 
-func TestExecuteMapsUnauthorizedToAuthError(t *testing.T) {
+func TestExecuteMapsUnauthorizedToErrAuthExpired(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(401)
 		_, _ = w.Write([]byte(`{"errors":[{"message":"token expired"}]}`))
@@ -64,8 +64,8 @@ func TestExecuteMapsUnauthorizedToAuthError(t *testing.T) {
 
 	c, _ := New(Config{Endpoint: srv.URL, Timeout: 2 * time.Second})
 	_, err := c.Execute(context.Background(), `{ ping }`, nil, "")
-	if !errors.Is(err, AuthError) {
-		t.Errorf("expected AuthError, got %v", err)
+	if !errors.Is(err, ErrAuthExpired) {
+		t.Errorf("expected ErrAuthExpired, got %v", err)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestExecuteSurfacesUpstreamFailure(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error for 500")
 	}
-	if errors.Is(err, AuthError) {
-		t.Errorf("500 should not be AuthError")
+	if errors.Is(err, ErrAuthExpired) {
+		t.Errorf("500 should not be ErrAuthExpired")
 	}
 	if res == nil || res.Status != 500 {
 		t.Errorf("expected status=500 in result, got %+v", res)
