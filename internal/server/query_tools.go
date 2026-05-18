@@ -11,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 
+	"github.com/felixgeelhaar/scry/internal/cache"
 	"github.com/felixgeelhaar/scry/internal/gate"
 	"github.com/felixgeelhaar/scry/internal/obs"
 	"github.com/felixgeelhaar/scry/internal/runtime"
@@ -114,6 +115,22 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			// the call too.
 			effect := gate.Classify(in.Query)
 			session := sessionFromContext(ctx)
+
+			// Cache check for reads. Mutations bypass — the cache
+			// stays correctness-safe even when an agent mixes
+			// reads + writes against the same data.
+			cacheKey := ""
+			if effect == gate.EffectRead && entry.Cache != nil {
+				cacheKey = cache.Key(in.Query, in.Variables, in.OperationName)
+				if body, hit := entry.Cache.Get(cacheKey); hit {
+					ev.Str("outcome", "ok_cached").
+						Int("response_bytes", len(body)).
+						Dur("dur", time.Since(start)).Send()
+					recordOutcome("ok_cached", entry.Name, complexity)
+					g.Record(session, entry.Name, effect, complexity, in.Query, body, "ok_cached")
+					return string(body), nil
+				}
+			}
 			if decision := g.CheckBudget(session, effect, complexity); !decision.Allowed {
 				ev.Str("outcome", "budget_exceeded").
 					Str("effect", string(effect)).
@@ -171,6 +188,9 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			ev.Str("outcome", "ok").Int("status", res.Status).Int("response_bytes", len(res.Raw)).Dur("dur", time.Since(start)).Send()
 			recordOutcome("ok", entry.Name, complexity)
 			g.Record(session, entry.Name, effect, complexity, in.Query, res.Raw, "ok")
+			if cacheKey != "" {
+				entry.Cache.Set(cacheKey, res.Raw)
+			}
 			return string(res.Raw), nil
 		})
 	return nil

@@ -22,6 +22,7 @@ import (
 	otelmetric "go.opentelemetry.io/otel/metric"
 
 	"github.com/felixgeelhaar/scry/internal/auth"
+	"github.com/felixgeelhaar/scry/internal/cache"
 	"github.com/felixgeelhaar/scry/internal/obs"
 	"github.com/felixgeelhaar/scry/internal/schema"
 	"github.com/felixgeelhaar/scry/internal/upstream"
@@ -42,6 +43,10 @@ type Entry struct {
 	Upstream string
 	Store    *schema.Store
 	Client   *upstream.Client
+	// Cache holds recent read-query results. Nil when caching
+	// is disabled (TTL=0); query_execute checks for nil before
+	// dispatching.
+	Cache *cache.Cache
 	// AuthRef is the *reference* used to resolve the upstream
 	// token at request time, kept for logs / status. Never holds
 	// the resolved secret itself.
@@ -72,6 +77,10 @@ type Manager struct {
 	// Kept here so the Manager owns "what to do" config the tools
 	// need at call time.
 	CostCeiling int
+	// CacheTTL is per-entry result cache TTL. Zero disables.
+	CacheTTL time.Duration
+	// CacheMaxEntries caps per-entry cache size; 0 = unbounded.
+	CacheMaxEntries int
 }
 
 // New creates an empty Manager. Caller seeds entries via Load or
@@ -216,6 +225,9 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		AuthHeader: ac.AuthHeader,
 		AuthScheme: ac.AuthScheme,
 		SDLPath:    ac.SDLPath,
+	}
+	if m.CacheTTL > 0 {
+		entry.Cache = cache.New(m.CacheTTL, m.CacheMaxEntries)
 	}
 
 	if err := refreshEntry(ctx, entry, tokenResolver(ac.Name, ac.AuthRef), ac.Force); err != nil {

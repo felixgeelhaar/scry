@@ -58,6 +58,14 @@ type Config struct {
 	// CostCeiling rejects query_execute calls whose estimated
 	// complexity exceeds this threshold. 0 disables.
 	CostCeiling int
+	// CacheTTL caps how long a cached read-query result stays
+	// fresh. 0 disables the cache. Default 30s — enough to dedupe
+	// rapid agent re-queries within a single task without serving
+	// stale data across tasks.
+	CacheTTL time.Duration
+	// CacheMaxEntries caps the per-upstream cache. 0 = unlimited
+	// (TTL is the only eviction signal). Default 1000.
+	CacheMaxEntries int
 	// SessionWriteLimit caps mutations per session (gate.Policy).
 	// 0 disables.
 	SessionWriteLimit int
@@ -118,6 +126,8 @@ func ParseFlags(args []string) (Config, error) {
 	fs.StringVar(&cfg.IndexDir, "index", "", "directory holding the schema index (defaults to ~/.local/share/scry)")
 	fs.DurationVar(&cfg.RefreshInterval, "refresh-interval", 24*time.Hour, "background refresh cadence; 0 disables")
 	fs.IntVar(&cfg.CostCeiling, "cost-ceiling", 1000, "reject query_execute calls whose estimated complexity exceeds this; 0 disables")
+	fs.DurationVar(&cfg.CacheTTL, "cache-ttl", 30*time.Second, "per-upstream read-query result cache TTL; 0 disables caching")
+	fs.IntVar(&cfg.CacheMaxEntries, "cache-max-entries", 1000, "per-upstream cache capacity; 0 = unbounded")
 	fs.IntVar(&cfg.SessionWriteLimit, "session-writes", 0, "cap mutations per session; 0 = unlimited")
 	fs.IntVar(&cfg.SessionComplexityLimit, "session-complexity", 0, "cap cumulative query complexity per session; 0 = unlimited")
 	fs.IntVar(&cfg.EvidenceLimit, "evidence-limit", 1000, "cap in-memory audit chain per session; 0 = unbounded")
@@ -149,6 +159,8 @@ func Run(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
+	mgr.CacheTTL = cfg.CacheTTL
+	mgr.CacheMaxEntries = cfg.CacheMaxEntries
 	defer func() { _ = mgr.Close() }()
 
 	if err := seedManager(ctx, cfg, mgr); err != nil {
