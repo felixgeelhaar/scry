@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"time"
 
+	// Pure-Go SQLite driver — registers itself with database/sql
+	// on import. Per-package blank import (Go scopes blank imports
+	// to the importing file).
 	_ "modernc.org/sqlite"
 )
 
