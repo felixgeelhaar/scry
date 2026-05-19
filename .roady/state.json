@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 114,
+  "version": 116,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -483,15 +483,21 @@
       "elapsed_minutes": 0
     },
     "v07-multi-tenant-config": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 86edb71 — Client.Tenant + Scope.Tenant + TenantOf() + TenantsDir + LoadTenant + MergeTenant. 8 tests cover name validation, path-traversal rejection, missing/present overlays, insecure perms, merge precedence, nil safety, default fallback."
+      ],
+      "started_at": "2026-05-19T19:59:51.062016+02:00",
+      "completed_at": "2026-05-19T20:01:48.891177+02:00",
+      "elapsed_minutes": 1
+    },
+    "v07-multi-tenant-routing": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T19:59:51.062016+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-multi-tenant-routing": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T20:01:57.55306+02:00",
       "elapsed_minutes": 0
     },
     "v07-oauth2-token-source": {
@@ -635,5 +641,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:59:51.062016+02:00"
+  "updated_at": "2026-05-19T20:01:57.55306+02:00"
 }
