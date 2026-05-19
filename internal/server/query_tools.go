@@ -32,6 +32,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 		Hash          string         `json:"hash,omitempty" jsonschema:"description=SHA-256 hex of a persisted query registered via scry pq add (mutually exclusive with query)"`
 		Variables     map[string]any `json:"variables,omitempty" jsonschema:"description=optional variables map"`
 		OperationName string         `json:"operation_name,omitempty"`
+		Select        string         `json:"select,omitempty" jsonschema:"description=optional JMESPath expression projected against the response body before return (e.g. 'data.user.{n: name, e: email}'); reduces tokens returned to the agent"`
 	}
 	srv.Tool("query_execute").
 		Description("Run a GraphQL query against the named upstream and return the result. ALWAYS run query_validate + query_cost first — query_execute counts against the agent's execution budget. With multiple upstreams, set `server`; otherwise the single configured upstream is used. Pass `hash` instead of `query` to invoke a persisted query (cuts agent context budget for known workloads).").
@@ -236,13 +237,32 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 				}), nil
 			}
 
-			ev.Str("outcome", "ok").Int("status", res.Status).Int("response_bytes", len(res.Raw)).Dur("dur", time.Since(start)).Send()
-			recordOutcome("ok", entry.Name, complexity)
-			g.Record(session, entry.Name, effect, complexity, in.Query, res.Raw, "ok")
-			if cacheKey != "" {
-				entry.Cache.Set(cacheKey, res.Raw)
+			body := res.Raw
+			// JMESPath projection: optional post-execute filter that
+			// trims the response body BEFORE returning it to the
+			// agent. Cache stores the projected form so subsequent
+			// identical calls (same query + same select) hit the
+			// cache with the smaller payload.
+			if in.Select != "" {
+				projected, perr := applyJMESPath(in.Select, body)
+				if perr != nil {
+					ev.Str("outcome", "invalid_select").Err(perr).Dur("dur", time.Since(start)).Send()
+					recordOutcome("invalid_select", entry.Name, complexity)
+					return renderExecuteError("invalid_select",
+						"JMESPath expression failed; check syntax + verify field paths against the upstream response shape", map[string]any{
+							"select": in.Select,
+							"reason": perr.Error(),
+						}), nil
+				}
+				body = projected
 			}
-			return string(res.Raw), nil
+			ev.Str("outcome", "ok").Int("status", res.Status).Int("response_bytes", len(body)).Dur("dur", time.Since(start)).Send()
+			recordOutcome("ok", entry.Name, complexity)
+			g.Record(session, entry.Name, effect, complexity, in.Query, body, "ok")
+			if cacheKey != "" {
+				entry.Cache.Set(cacheKey, body)
+			}
+			return string(body), nil
 		})
 	return nil
 }

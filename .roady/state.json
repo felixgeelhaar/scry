@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 80,
+  "version": 82,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -366,11 +366,15 @@
       "elapsed_minutes": 1
     },
     "v07-authz-wire-into-tools": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 34dcc97 — checkDeniedFields helper + wiring into query_execute (post-validate, pre-cost-gate) + query_validate. 8 integration tests covering trips, passthrough, alias bypass attempt, no-scope passthrough, audit chain recording, wildcard, dedupe. All pass, 0 lint issues, full test suite green."
+      ],
       "started_at": "2026-05-19T11:17:21.33892+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T11:20:36.599924+02:00",
+      "elapsed_minutes": 3
     },
     "v07-cache-purge-tool": {
       "status": "pending",
@@ -488,8 +492,10 @@
       "elapsed_minutes": 0
     },
     "v07-result-select-jmespath": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T11:20:53.402787+02:00",
       "elapsed_minutes": 0
     },
     "v07-schema-neighbors-index": {
@@ -533,5 +539,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T11:17:21.33892+02:00"
+  "updated_at": "2026-05-19T11:20:53.402787+02:00"
 }
