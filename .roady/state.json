@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 100,
+  "version": 104,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -555,20 +555,32 @@
       "elapsed_minutes": 1
     },
     "v07-scry-init-interactive": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 5083314 — runInit covers both interactive + non-interactive modes in a single function. Wired into main switch + usage text. Idempotent overwrite via --yes; introspection probe surfaces warnings without failing the entry write."
+      ],
+      "started_at": "2026-05-19T19:45:06.747406+02:00",
+      "completed_at": "2026-05-19T19:49:47.387105+02:00",
+      "elapsed_minutes": 4
+    },
+    "v07-scry-init-mcp-snippet": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T19:45:06.747406+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-scry-init-mcp-snippet": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T19:50:20.917674+02:00",
       "elapsed_minutes": 0
     },
     "v07-scry-init-noninteractive": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "shipped alongside interactive in commit 5083314 — --yes flag in runInit toggles non-interactive mode in same function. Validates upstream URL, requires --upstream + (--token|--no-token), idempotent overwrite."
+      ],
+      "started_at": "2026-05-19T19:50:05.868612+02:00",
+      "completed_at": "2026-05-19T19:50:13.421771+02:00",
       "elapsed_minutes": 0
     },
     "v07-tool-examples": {
@@ -593,5 +605,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:45:06.747406+02:00"
+  "updated_at": "2026-05-19T19:50:20.917674+02:00"
 }

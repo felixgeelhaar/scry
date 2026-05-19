@@ -148,7 +148,46 @@ func runInit(args []string) int {
 			fmt.Fprintln(stdout, "introspection probe succeeded.")
 		}
 	}
+
+	// MCP-client config snippet. Most operators landing here next
+	// register scry with Claude Desktop / Cursor; printing the
+	// snippet they need to paste cuts a doc lookup. Suppressed
+	// in --yes mode (CI / dotfiles bootstrap doesn't want chatter).
+	if !*yes {
+		printMCPSnippet(stdout, name)
+	}
 	return 0
+}
+
+// printMCPSnippet emits a copy-pasteable JSON fragment for the
+// operator to add to their MCP client's config (Claude Desktop,
+// Cursor, Claude Code). One-shot help — written to stdout so
+// shell-redirect captures it cleanly.
+//
+// Path locations:
+//   - macOS:   ~/Library/Application Support/Claude/claude_desktop_config.json
+//   - Linux:   $XDG_CONFIG_HOME/Claude/claude_desktop_config.json
+//   - Windows: %APPDATA%/Claude/claude_desktop_config.json
+//
+// Cursor reads ~/.cursor/mcp.json with the same shape.
+func printMCPSnippet(out io.Writer, name string) {
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "scry"
+	}
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Next: register scry with your MCP client.")
+	fmt.Fprintln(out, "Add this entry to ~/Library/Application Support/Claude/claude_desktop_config.json")
+	fmt.Fprintln(out, "(macOS path; see https://modelcontextprotocol.io/quickstart for Linux/Windows):")
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "  {")
+	fmt.Fprintln(out, "    \"mcpServers\": {")
+	fmt.Fprintf(out, "      %q: {\n", name)
+	fmt.Fprintf(out, "        \"command\": %q,\n", exe)
+	fmt.Fprintln(out, "        \"args\": [\"serve\"]")
+	fmt.Fprintln(out, "      }")
+	fmt.Fprintln(out, "    }")
+	fmt.Fprintln(out, "  }")
 }
 
 // promptLine emits prompt to out, reads one line from in, trims, and
