@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 120,
+  "version": 122,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -511,15 +511,21 @@
       "elapsed_minutes": 1
     },
     "v07-oauth2-token-source": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 7840d87 — OAuth2Config + Validate + NewOAuth2TokenSource + skewedSource wrapper + 5 unit tests covering validation, issuance, in-validity caching, skew-driven refresh, nil-token handling."
+      ],
+      "started_at": "2026-05-19T20:06:20.074371+02:00",
+      "completed_at": "2026-05-19T20:07:56.189907+02:00",
+      "elapsed_minutes": 1
+    },
+    "v07-oauth2-wire-into-runtime": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T20:06:20.074371+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-oauth2-wire-into-runtime": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T20:08:04.428987+02:00",
       "elapsed_minutes": 0
     },
     "v07-pg-store-interface": {
@@ -653,5 +659,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:06:20.074371+02:00"
+  "updated_at": "2026-05-19T20:08:04.428987+02:00"
 }

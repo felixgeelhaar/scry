@@ -71,6 +71,11 @@ type Auth struct {
 	// "" (an explicit empty string in YAML) when the upstream
 	// expects the raw credential with no prefix.
 	Scheme *string `yaml:"scheme,omitempty"`
+	// OAuth2 is populated when Type == "oauth2". Carries the
+	// token-endpoint + client_id/secret refs scry needs to issue
+	// a clientcredentials TokenSource that refreshes ahead of
+	// expiry. Mutually exclusive with Token.
+	OAuth2 *OAuth2Config `yaml:"oauth2,omitempty"`
 }
 
 // HeaderAndScheme returns the resolved header name + value scheme for

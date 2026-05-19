@@ -197,6 +197,11 @@ type AddConfig struct {
 	// RateLimit caps RPS scry sends to this upstream. Mapped 1:1
 	// from auth.Server.RateLimit. Zero values disable the gate.
 	RateLimit upstream.RateLimitConfig
+	// OAuth2 wires an OAuth2 client-credentials TokenSource that
+	// refreshes ahead of expiry. Mutually exclusive with AuthRef
+	// (Validate rejects both being set). Populated by Load from
+	// servers.yml when an entry's auth.type == "oauth2".
+	OAuth2 *auth.OAuth2Config
 }
 
 // Add wires one upstream: opens its store, builds its fortify
@@ -246,7 +251,33 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		entry.Cache = cache.New(m.CacheTTL, m.CacheMaxEntries)
 	}
 
-	if err := refreshEntry(ctx, entry, tokenResolver(ac.Name, ac.AuthRef), ac.Force); err != nil {
+	resolver := tokenResolver(ac.Name, ac.AuthRef)
+	if ac.OAuth2 != nil {
+		// Reuse the same OAuth2 source for introspection — sharing
+		// avoids two parallel token endpoints + matches the upstream
+		// client's behaviour at refresh time.
+		if src, err := auth.NewOAuth2TokenSource(ctx, ac.OAuth2); err == nil {
+			resolver = func() string {
+				t, err := src.Token()
+				if err != nil {
+					obs.L.Error().
+						Str("event", "auth.oauth2_introspect_token_failed").
+						Str("server", ac.Name).
+						Err(err).
+						Msg("oauth2 token fetch for introspection failed")
+					return ""
+				}
+				return t.AccessToken
+			}
+		} else {
+			obs.L.Error().
+				Str("event", "auth.oauth2_introspect_init_failed").
+				Str("server", ac.Name).
+				Err(err).
+				Msg("oauth2 source init failed; introspection will run unauthenticated")
+		}
+	}
+	if err := refreshEntry(ctx, entry, resolver, ac.Force); err != nil {
 		_ = store.Close()
 		return fmt.Errorf("runtime: refresh %q: %w", ac.Name, err)
 	}
@@ -261,7 +292,7 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 // Centralised so the YAML→Manager mapping stays in one place — keeps
 // the Replace + LoadFromServers paths consistent.
 func addConfigFromServer(name string, srv auth.Server) AddConfig {
-	return AddConfig{
+	cfg := AddConfig{
 		Name:       name,
 		Upstream:   srv.Upstream,
 		AuthRef:    srv.Auth.Token,
@@ -273,6 +304,14 @@ func addConfigFromServer(name string, srv auth.Server) AddConfig {
 			Burst: srv.RateLimit.Burst,
 		},
 	}
+	// type=oauth2 → wire the TokenSource path. AuthRef is left
+	// empty so buildAuthSpec takes the OAuth2 branch rather than
+	// the static-bearer one.
+	if srv.Auth.Type == "oauth2" && srv.Auth.OAuth2 != nil {
+		cfg.OAuth2 = srv.Auth.OAuth2
+		cfg.AuthRef = ""
+	}
+	return cfg
 }
 
 // schemePtrEqual compares two *string scheme overrides. Nil pointers
@@ -602,6 +641,54 @@ func refreshEntry(ctx context.Context, e *Entry, resolver func() string, force b
 	return nil
 }
 
+// buildOAuth2AuthSpec wires an OAuth2 client-credentials TokenSource
+// into the upstream client. The source is created once per Add +
+// kept by the closure; clientcredentials' reuseTokenSource handles
+// caching + refresh.
+//
+// On resolution failure the wrapped resolver returns "" — matches
+// the static-bearer failure mode so the upstream client uniformly
+// sees "no auth header" rather than two distinct error paths.
+func buildOAuth2AuthSpec(ac AddConfig) upstream.AuthSpec {
+	header := ac.AuthHeader
+	if header == "" {
+		header = "Authorization"
+	}
+	scheme := "Bearer"
+	hasScheme := true
+	if ac.AuthScheme != nil {
+		scheme = *ac.AuthScheme
+		hasScheme = scheme != ""
+	}
+	src, err := auth.NewOAuth2TokenSource(context.Background(), ac.OAuth2)
+	if err != nil {
+		obs.L.Error().
+			Str("event", "auth.oauth2_init_failed").
+			Str("server", ac.Name).
+			Err(err).
+			Msg("oauth2 token source init failed; upstream will receive no auth header")
+		return upstream.AuthSpec{
+			Header: header, Scheme: scheme, HasScheme: hasScheme,
+			Token: func() string { return "" },
+		}
+	}
+	return upstream.AuthSpec{
+		Header: header, Scheme: scheme, HasScheme: hasScheme,
+		Token: func() string {
+			t, err := src.Token()
+			if err != nil {
+				obs.L.Error().
+					Str("event", "auth.oauth2_token_failed").
+					Str("server", ac.Name).
+					Err(err).
+					Msg("oauth2 token refresh failed")
+				return ""
+			}
+			return t.AccessToken
+		},
+	}
+}
+
 // tokenResolver wraps auth.ResolveToken in a closure that also logs
 // resolution failures with the redacted reference. Used by both the
 // upstream client (per-call) and the schema introspection client.
@@ -629,6 +716,12 @@ func tokenResolver(server, ref string) func() string {
 // skips the auth header entirely). Anything else builds a resolver
 // + the operator-specified header / scheme overrides.
 func buildAuthSpec(ac AddConfig) upstream.AuthSpec {
+	// OAuth2 takes precedence over a static bearer ref — both
+	// shouldn't be set (Validate guards) but if they are, the
+	// token source is the right answer.
+	if ac.OAuth2 != nil {
+		return buildOAuth2AuthSpec(ac)
+	}
 	if ac.AuthRef == "" {
 		return upstream.AuthSpec{}
 	}
