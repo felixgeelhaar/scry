@@ -251,6 +251,14 @@ schema index (FTS5 + BM25), validate, cost, execute (fortify-wrapped),
 credential store with token refs, multi-upstream + hot reload,
 per-tool authz, structured logs + OTel tracing.
 
+## Benchmarks
+
+- [`docs/benchmarks/github-v4/`](docs/benchmarks/github-v4/) —
+  reproducible head-to-head against GitHub's v4 GraphQL API (1756
+  types, ~370k tokens of SDL). Full-SDL baseline vs. scry-routed
+  agent. `make bench` reproduces from a clean checkout with a
+  GitHub PAT + Anthropic key.
+
 ## Design references
 
 - [`docs/dep-eval.md`](docs/dep-eval.md) — why mcp-go, axi-go, bolt, fortify
