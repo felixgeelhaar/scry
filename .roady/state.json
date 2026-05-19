@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 128,
+  "version": 130,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -437,11 +437,15 @@
       "elapsed_minutes": 2
     },
     "v07-diff-webhook-tools": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 0f86d6b — 3 MCP tools (subscribe/list/remove) admin-gated, descriptions with few-shot examples, 5 integration tests. Secret exposed once at subscribe, never surfaced via list."
+      ],
       "started_at": "2026-05-19T20:18:19.732127+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:20:26.057642+02:00",
+      "elapsed_minutes": 2
     },
     "v07-docker-image": {
       "status": "done",
@@ -455,8 +459,10 @@
       "elapsed_minutes": 2
     },
     "v07-embedding-extension": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:20:40.169336+02:00",
       "elapsed_minutes": 0
     },
     "v07-embedding-hybrid-score": {
@@ -677,5 +683,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:18:19.732127+02:00"
+  "updated_at": "2026-05-19T20:20:40.169336+02:00"
 }
