@@ -67,6 +67,10 @@ type Entry struct {
 	// was loaded from a local SDL file rather than via
 	// introspection. Refresh re-reads the same file.
 	SDLPath string
+	// Webhooks persists the per-server schema_diff webhook
+	// registrations. Nil pre-v0.7 entries leave dispatch disabled;
+	// Add opens the store under <IndexDir>/<safe>.webhooks.db.
+	Webhooks *WebhookStore
 }
 
 // Manager owns every active upstream. Read-mostly: servers are
@@ -224,6 +228,12 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		_ = store.Close()
 		return fmt.Errorf("runtime: open pq store for %q: %w", ac.Name, err)
 	}
+	webhookStore, err := OpenWebhookStore(filepath.Join(m.IndexDir, safeIndexName(ac.Name)+".webhooks.db"))
+	if err != nil {
+		_ = store.Close()
+		_ = pqStore.Close()
+		return fmt.Errorf("runtime: open webhooks store for %q: %w", ac.Name, err)
+	}
 
 	authSpec := buildAuthSpec(ac)
 	client, err := upstream.New(upstream.Config{
@@ -242,6 +252,7 @@ func (m *Manager) Add(ctx context.Context, ac AddConfig) error {
 		Store:      store,
 		Client:     client,
 		PQ:         pqStore,
+		Webhooks:   webhookStore,
 		AuthRef:    ac.AuthRef,
 		AuthHeader: ac.AuthHeader,
 		AuthScheme: ac.AuthScheme,
@@ -776,6 +787,26 @@ func persistAndEmitDiff(ctx context.Context, e *Entry, report schema.DiffReport)
 	buf, err := json.Marshal(report)
 	if err == nil {
 		_ = e.Store.SetMeta(ctx, "last_diff", string(buf))
+		// Fire-and-forget webhook dispatch. Failures log + count
+		// in metrics but never kill the refresh. WebhookStore may
+		// be nil on entries that pre-date the v0.7 webhook wiring
+		// (or when the dispatcher hasn't been built yet).
+		if e.Webhooks != nil && len(buf) > 0 {
+			d := NewWebhookDispatcher(e.Webhooks, e.Name)
+			go func(payload []byte) {
+				// Use a fresh context with its own timeout —
+				// inheriting the refresh ctx would cancel
+				// deliveries mid-flight when refresh completes.
+				dctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+				if err := d.Dispatch(dctx, "schema_diff", payload); err != nil && !errors.Is(err, ErrNoRegistrations) {
+					obs.L.Warn().
+						Str("event", "webhook.dispatch_failed").
+						Str("server", e.Name).
+						Err(err).Send()
+				}
+			}(buf)
+		}
 	}
 	obs.L.Info().
 		Str("event", "schema.changed").

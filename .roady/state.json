@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 124,
+  "version": 126,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -415,16 +415,22 @@
       "elapsed_minutes": 0
     },
     "v07-diff-webhook-dispatch": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "v07-diff-webhook-store": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T20:12:20.798791+02:00",
+      "started_at": "2026-05-19T20:14:35.182605+02:00",
       "elapsed_minutes": 0
+    },
+    "v07-diff-webhook-store": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 6173262 (+ 58f2060 lint fix) — WebhookStore + 5 tests covering register/list/forward/remove/reopen. List omits secret, Forward includes it for dispatcher use."
+      ],
+      "started_at": "2026-05-19T20:12:20.798791+02:00",
+      "completed_at": "2026-05-19T20:14:25.565139+02:00",
+      "elapsed_minutes": 2
     },
     "v07-diff-webhook-tools": {
       "status": "pending",
@@ -665,5 +671,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:12:20.798791+02:00"
+  "updated_at": "2026-05-19T20:14:35.182605+02:00"
 }
