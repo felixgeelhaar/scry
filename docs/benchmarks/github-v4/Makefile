@@ -17,7 +17,7 @@ GO    ?= go
 
 # Pin Claude model so trial-to-trial cost + tokens are comparable
 # across users running the bench at different dates.
-MODEL ?= claude-sonnet-4-5
+MODEL ?= claude-sonnet-4-6
 TRIALS ?= 10
 
 .PHONY: bench bench-baseline bench-scry bench-summary bench-clean bench-fixtures
