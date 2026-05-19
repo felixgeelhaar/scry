@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: scry
-  labels:
-    app.kubernetes.io/name: scry
-    app.kubernetes.io/part-of: scry
