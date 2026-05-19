@@ -41,7 +41,7 @@ bench-summary:
 
 bench-fixtures:
 	@echo ">> WARNING: refreshing fixtures invalidates prior comparisons"
-	$(GO) run ./fixtures -out fixtures/
+	$(GO) run ./cmd/record-fixtures -out fixtures/expected.json
 
 bench-clean:
 	rm -f results/*.jsonl results/summary.md results/summary.json
