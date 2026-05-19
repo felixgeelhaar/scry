@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 118,
+  "version": 120,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -478,11 +478,15 @@
       "elapsed_minutes": 2
     },
     "v07-multi-tenant-audit": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 0847553 — sessionFromContext returns \"\u003ctenant\u003e:\u003cidentity\u003e\" so gate Stats/Chain/VerifyChainForSession scope per-tenant transparently. Filename sanitisation keeps files glob-friendly by tenant prefix. Tests updated, all packages green, 0 lint."
+      ],
       "started_at": "2026-05-19T20:03:38.389257+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:06:11.718053+02:00",
+      "elapsed_minutes": 2
     },
     "v07-multi-tenant-config": {
       "status": "done",
@@ -507,8 +511,10 @@
       "elapsed_minutes": 1
     },
     "v07-oauth2-token-source": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:06:20.074371+02:00",
       "elapsed_minutes": 0
     },
     "v07-oauth2-wire-into-runtime": {
@@ -647,5 +653,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:03:38.389257+02:00"
+  "updated_at": "2026-05-19T20:06:20.074371+02:00"
 }
