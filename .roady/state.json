@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 92,
+  "version": 96,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -377,16 +377,26 @@
       "elapsed_minutes": 3
     },
     "v07-cache-purge-tool": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "shipped alongside cache_stats in commit a50a3d3 — Purge() method on Cache + cache_purge admin-gated tool + entries_purged accounting + test coverage."
+      ],
+      "started_at": "2026-05-19T19:39:53.728126+02:00",
+      "completed_at": "2026-05-19T19:40:03.79753+02:00",
       "elapsed_minutes": 0
     },
     "v07-cache-stats-tool": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit a50a3d3 — Stats counters + cache_stats MCP tool + 4 tests. Admin-gated, hit_rate computed, disabled cache rendering."
+      ],
       "started_at": "2026-05-19T19:36:16.087313+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T19:39:45.873755+02:00",
+      "elapsed_minutes": 3
     },
     "v07-changelog-and-release": {
       "status": "pending",
@@ -523,8 +533,10 @@
       "elapsed_minutes": 2
     },
     "v07-schema-neighbors-index": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:40:11.195727+02:00",
       "elapsed_minutes": 0
     },
     "v07-schema-neighbors-tool": {
@@ -569,5 +581,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:36:16.087313+02:00"
+  "updated_at": "2026-05-19T19:40:11.195727+02:00"
 }

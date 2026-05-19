@@ -659,6 +659,10 @@ func persistSchema(ctx context.Context, e *Entry, s *schema.Schema, mode schema.
 	if err := e.Store.Replace(ctx, units); err != nil {
 		return fmt.Errorf("replace units: %w", err)
 	}
+	edges := schema.BuildEdges(s)
+	if err := e.Store.ReplaceNeighbors(ctx, edges); err != nil {
+		return fmt.Errorf("replace neighbors: %w", err)
+	}
 	if err := e.Store.SetMeta(ctx, "full_sdl", schema.BuildSDL(s)); err != nil {
 		return fmt.Errorf("persist sdl: %w", err)
 	}

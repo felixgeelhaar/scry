@@ -70,6 +70,20 @@ CREATE TABLE IF NOT EXISTS meta (
   value TEXT NOT NULL
 );
 
+-- v0.7 schema_neighbors: directed type-to-type edges computed from
+-- introspection. (src, dst, field, kind) uniquely identifies one
+-- edge; agents query "give me neighbors of X" via the indexed src
+-- and dst columns.
+CREATE TABLE IF NOT EXISTS neighbors (
+  src   TEXT NOT NULL,
+  dst   TEXT NOT NULL,
+  field TEXT NOT NULL DEFAULT '',
+  kind  TEXT NOT NULL DEFAULT 'field',
+  PRIMARY KEY (src, dst, field, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_neighbors_src ON neighbors(src);
+CREATE INDEX IF NOT EXISTS idx_neighbors_dst ON neighbors(dst);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS units_fts USING fts5(
   name, kind, parent_type, description, signature, composed,
   content='units', content_rowid='rowid', tokenize='porter unicode61'
@@ -201,6 +215,83 @@ func (s *Store) Count(ctx context.Context) (int, error) {
 	var n int
 	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM units").Scan(&n)
 	return n, err
+}
+
+// ReplaceNeighbors atomically swaps the directed type-edge table.
+// Called after BuildEdges on every introspection refresh — the
+// schema_neighbors MCP tool queries this table at agent-call time
+// for O(log N) lookups via the (src, dst) indexes.
+func (s *Store) ReplaceNeighbors(ctx context.Context, edges []Edge) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin neighbors: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, "DELETE FROM neighbors"); err != nil {
+		return fmt.Errorf("clear neighbors: %w", err)
+	}
+	stmt, err := tx.PrepareContext(ctx,
+		"INSERT OR IGNORE INTO neighbors(src, dst, field, kind) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return fmt.Errorf("prepare neighbors insert: %w", err)
+	}
+	defer func() { _ = stmt.Close() }()
+	for _, e := range edges {
+		if _, err := stmt.ExecContext(ctx, e.Src, e.Dst, e.Field, e.Kind); err != nil {
+			return fmt.Errorf("insert edge %s→%s: %w", e.Src, e.Dst, err)
+		}
+	}
+	return tx.Commit()
+}
+
+// NeighborSet bundles the schema_neighbors query result. Caps applied
+// at the store layer so the MCP envelope stays context-budget friendly.
+type NeighborSet struct {
+	Incoming []Edge // edges pointing AT name (others reference it)
+	Outgoing []Edge // edges pointing FROM name (it references others)
+}
+
+// Neighbors returns the type's incoming + outgoing edges, each capped
+// at limit (clamped to [1, 50]). Tool callers render the set verbatim
+// to keep the result reproducible across re-runs.
+func (s *Store) Neighbors(ctx context.Context, name string, limit int) (NeighborSet, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	var out NeighborSet
+	outgoing, err := s.db.QueryContext(ctx,
+		"SELECT src, dst, field, kind FROM neighbors WHERE src = ? ORDER BY kind, dst, field LIMIT ?",
+		name, limit)
+	if err != nil {
+		return out, fmt.Errorf("outgoing: %w", err)
+	}
+	for outgoing.Next() {
+		var e Edge
+		if err := outgoing.Scan(&e.Src, &e.Dst, &e.Field, &e.Kind); err != nil {
+			_ = outgoing.Close()
+			return out, fmt.Errorf("scan outgoing: %w", err)
+		}
+		out.Outgoing = append(out.Outgoing, e)
+	}
+	_ = outgoing.Close()
+	incoming, err := s.db.QueryContext(ctx,
+		"SELECT src, dst, field, kind FROM neighbors WHERE dst = ? ORDER BY kind, src, field LIMIT ?",
+		name, limit)
+	if err != nil {
+		return out, fmt.Errorf("incoming: %w", err)
+	}
+	defer func() { _ = incoming.Close() }()
+	for incoming.Next() {
+		var e Edge
+		if err := incoming.Scan(&e.Src, &e.Dst, &e.Field, &e.Kind); err != nil {
+			return out, fmt.Errorf("scan incoming: %w", err)
+		}
+		out.Incoming = append(out.Incoming, e)
+	}
+	return out, nil
 }
 
 // SetMeta upserts a key/value pair into the meta table. Used to
