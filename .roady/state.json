@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 90,
+  "version": 92,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -382,8 +382,10 @@
       "elapsed_minutes": 0
     },
     "v07-cache-stats-tool": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:36:16.087313+02:00",
       "elapsed_minutes": 0
     },
     "v07-changelog-and-release": {
@@ -483,11 +485,15 @@
       "elapsed_minutes": 0
     },
     "v07-pq-named-tool": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit c3217b0 — query_execute name arg + three-way exclusivity (query/hash/name) + GetByName path + pq_not_found envelope for name miss. 4 new tests cover happy path, not_found, and two conflict modes. CLI scry pq add already supported names."
+      ],
       "started_at": "2026-05-19T19:34:22.580335+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T19:36:09.019587+02:00",
+      "elapsed_minutes": 1
     },
     "v07-redis-cache": {
       "status": "pending",
@@ -563,5 +569,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:34:22.580335+02:00"
+  "updated_at": "2026-05-19T19:36:16.087313+02:00"
 }

@@ -36,6 +36,34 @@ type Cache struct {
 	// now is the clock injection seam. Tests swap to fast-forward
 	// through TTL expiry without sleeping.
 	now func() time.Time
+
+	// hits / misses / evictions are per-cache counters surfaced
+	// by Stats(). Otel metrics already track these too — these
+	// in-cache counters are for the cache_stats MCP tool which
+	// runs inside the same process as the cache.
+	hits      int64
+	misses    int64
+	evictions int64
+	// oldestExpiresAt is the wall-clock timestamp of the next
+	// entry due to expire. Updated lazily on Set; surfaced via
+	// Stats so cache_stats can render "oldest entry age".
+	oldestExpiresAt time.Time
+}
+
+// Stats is a snapshot of a Cache's counters at a point in time.
+// Returned by Stats() — designed to be JSON-encodable so the
+// cache_stats MCP tool can forward it verbatim. Zero values
+// distinguish "no activity" from "disabled" (Cache nil).
+type Stats struct {
+	Entries   int   `json:"entries"`
+	Hits      int64 `json:"hits"`
+	Misses    int64 `json:"misses"`
+	Evictions int64 `json:"evictions"`
+	// OldestEntryAgeSeconds is approximate (the entry might not
+	// be the strict oldest if Set was concurrent with Get's
+	// touch). Useful for "is the cache cold?" diagnostics, not
+	// strict correctness.
+	OldestEntryAgeSeconds float64 `json:"oldest_entry_age_seconds"`
 }
 
 type entry struct {
@@ -93,14 +121,17 @@ func (c *Cache) Get(key string) ([]byte, bool) {
 	defer c.mu.Unlock()
 	e, ok := c.entries[key]
 	if !ok {
+		c.misses++
 		return nil, false
 	}
 	if c.now().After(e.expiresAt) {
 		delete(c.entries, key)
 		c.removeFromOrderLocked(key)
+		c.misses++
 		return nil, false
 	}
 	c.touchLocked(key)
+	c.hits++
 	return e.value, true
 }
 
@@ -117,6 +148,12 @@ func (c *Cache) Set(key string, value []byte) {
 	c.touchLocked(key)
 	if c.max > 0 && len(c.entries) > c.max {
 		c.evictOldestLocked()
+	}
+	// Track the youngest expiration as "oldest entry" hint —
+	// reset on each Set so Stats reports the most recently
+	// inserted entry's age. Approximate by design (see Stats).
+	if c.oldestExpiresAt.IsZero() || now.Before(c.oldestExpiresAt) {
+		c.oldestExpiresAt = now
 	}
 }
 
@@ -156,4 +193,35 @@ func (c *Cache) evictOldestLocked() {
 	oldest := c.order[0]
 	c.order = c.order[1:]
 	delete(c.entries, oldest)
+	c.evictions++
+}
+
+// Stats returns a counter snapshot. Safe to call concurrently with
+// Get/Set; counters are read under the cache mutex.
+func (c *Cache) Stats() Stats {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	s := Stats{
+		Entries:   len(c.entries),
+		Hits:      c.hits,
+		Misses:    c.misses,
+		Evictions: c.evictions,
+	}
+	if !c.oldestExpiresAt.IsZero() && len(c.entries) > 0 {
+		s.OldestEntryAgeSeconds = c.now().Sub(c.oldestExpiresAt).Seconds()
+	}
+	return s
+}
+
+// Purge wipes every entry + resets the LRU order. Counters survive
+// (operators sometimes want to know the historic hit rate even
+// after a purge). Safe to call concurrently with Get/Set.
+func (c *Cache) Purge() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := len(c.entries)
+	c.entries = map[string]*entry{}
+	c.order = c.order[:0]
+	c.oldestExpiresAt = time.Time{}
+	return n
 }

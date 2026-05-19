@@ -90,4 +90,16 @@ Examples:
 Examples:
 - Input: {"limit":10} → Output: last 10 evidence records.
 - Input: {"verify":true} → Output: chain plus a verification result. badIndex=-1 means the whole chain checks out.`
+
+	descCacheStats = `Return per-upstream cache hit-rate + size + eviction counters. Admin-only. Use to monitor cache health: low hit_rate ⇒ TTL too low / query mix too varied / CacheTTL not configured.
+
+Examples:
+- Input: {} → Output: {"caches":[{"server":"shopify","stats":{"entries":12,"hits":34,"misses":4,"evictions":0,"oldest_entry_age_seconds":18.5},"hit_rate":0.894}, ...]}
+- Disabled cache: {"server":"x","disabled":true} — operator didn't configure CacheTTL.`
+
+	descCachePurge = `Invalidate the result cache (one server or all). Admin-only. Use after a known upstream-side data change that would otherwise serve stale results until the TTL expires. Counters survive — historic hit-rate stays visible across purges.
+
+Examples:
+- Input: {"server":"shopify"} → Output: {"purged":[{"server":"shopify","entries_purged":12}]}
+- Input: {} → Output: list of every server with its purged count.`
 )

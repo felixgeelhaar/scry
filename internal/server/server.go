@@ -220,6 +220,9 @@ func Run(ctx context.Context, cfg Config) error {
 	if err := registerRuntimeTools(srv, mgr); err != nil {
 		return fmt.Errorf("register runtime tools: %w", err)
 	}
+	if err := registerCacheTools(srv, mgr); err != nil {
+		return fmt.Errorf("register cache tools: %w", err)
+	}
 
 	if cfg.RefreshInterval > 0 {
 		go runRefresher(ctx, cfg, mgr)
