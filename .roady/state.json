@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 144,
+  "version": 145,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -399,11 +399,15 @@
       "elapsed_minutes": 3
     },
     "v07-changelog-and-release": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 95f1ff0 + tag v0.7.0 pushed. CHANGELOG entry covers all 14 features across Tier 1/2/3 + future-proofing seams + deferred-to-v0.8 list. goreleaser will publish binaries + ghcr.io image + Helm chart on the new tag."
+      ],
       "started_at": "2026-05-19T20:27:48.485975+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:29:16.271175+02:00",
+      "elapsed_minutes": 1
     },
     "v07-deploy-k8s-manifests": {
       "status": "done",
@@ -725,5 +729,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:27:48.485975+02:00"
+  "updated_at": "2026-05-19T20:29:16.271176+02:00"
 }
