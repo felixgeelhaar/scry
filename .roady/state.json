@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 98,
+  "version": 100,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -544,15 +544,21 @@
       "elapsed_minutes": 3
     },
     "v07-schema-neighbors-tool": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 66fc478 — schema_neighbors MCP tool + 3 tests covering incoming/outgoing, not_found, limit-clamp."
+      ],
+      "started_at": "2026-05-19T19:43:20.051384+02:00",
+      "completed_at": "2026-05-19T19:44:55.086013+02:00",
+      "elapsed_minutes": 1
+    },
+    "v07-scry-init-interactive": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T19:43:20.051384+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-scry-init-interactive": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T19:45:06.747406+02:00",
       "elapsed_minutes": 0
     },
     "v07-scry-init-mcp-snippet": {
@@ -587,5 +593,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:43:20.051384+02:00"
+  "updated_at": "2026-05-19T19:45:06.747406+02:00"
 }

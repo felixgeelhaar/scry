@@ -75,6 +75,8 @@ func run() int {
 	switch os.Args[1] {
 	case "serve":
 		return runServe(os.Args[2:])
+	case "init":
+		return runInit(os.Args[2:])
 	case "servers":
 		runServers(os.Args[2:])
 		return 0
@@ -102,7 +104,8 @@ func usage() {
 	fmt.Fprint(os.Stderr, `scry — searchable GraphQL bridge for AI agents
 
 usage:
-  scry serve   --upstream <url> [--auth <token>] [--cost-ceiling N]
+  scry init      [--upstream <url>] [--token <ref>] [--name <name>] [--yes]
+  scry serve     --upstream <url> [--auth <token>] [--cost-ceiling N]
   scry servers list
   scry servers add    <name> --upstream <url>
   scry servers remove <name>
