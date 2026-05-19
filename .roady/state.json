@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 116,
+  "version": 118,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -478,8 +478,10 @@
       "elapsed_minutes": 2
     },
     "v07-multi-tenant-audit": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:03:38.389257+02:00",
       "elapsed_minutes": 0
     },
     "v07-multi-tenant-config": {
@@ -494,11 +496,15 @@
       "elapsed_minutes": 1
     },
     "v07-multi-tenant-routing": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 4de7ee5 — TenantFromContext helper resolves scope.TenantOf() or auth.DefaultTenant. 3 unit tests. Threat-model docs explain why X-Scry-Tenant header override is intentionally not supported (bearer-as-identity model)."
+      ],
       "started_at": "2026-05-19T20:01:57.55306+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:03:29.095465+02:00",
+      "elapsed_minutes": 1
     },
     "v07-oauth2-token-source": {
       "status": "pending",
@@ -641,5 +647,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:01:57.55306+02:00"
+  "updated_at": "2026-05-19T20:03:38.389257+02:00"
 }

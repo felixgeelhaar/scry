@@ -179,12 +179,12 @@ func TestMutationWriteCounterIncrements(t *testing.T) {
 	f := newMutationFixture(t)
 	mut := map[string]any{"query": "mutation { incrementCounter }"}
 
-	if w := f.gate.Stats("local").Writes; w != 0 {
+	if w := f.gate.Stats("default:local").Writes; w != 0 {
 		t.Fatalf("write counter starts at 0, got %d", w)
 	}
 	_ = f.call(mut)
 	_ = f.call(mut)
-	if w := f.gate.Stats("local").Writes; w != 2 {
+	if w := f.gate.Stats("default:local").Writes; w != 2 {
 		t.Errorf("write counter after 2 mutations = %d, want 2", w)
 	}
 }
@@ -193,7 +193,7 @@ func TestMutationChainEvidenceCarriesEffectWrite(t *testing.T) {
 	f := newMutationFixture(t)
 	_ = f.call(map[string]any{"query": "mutation { incrementCounter }"})
 
-	chain := f.gate.Chain("local")
+	chain := f.gate.Chain("default:local")
 	if len(chain) != 1 {
 		t.Fatalf("chain len = %d, want 1", len(chain))
 	}
@@ -241,13 +241,13 @@ func TestMutationWriteCounterDoesNotIncrementOnNonOK(t *testing.T) {
 	}
 
 	call("mutation { incrementCounter }")
-	if w := tightGate.Stats("local").Writes; w != 1 {
+	if w := tightGate.Stats("default:local").Writes; w != 1 {
 		t.Fatalf("after first mutation Writes = %d, want 1", w)
 	}
 	mutHitsAfterFirst := f.mutHits.Load()
 
 	call("mutation { incrementCounter }")
-	if w := tightGate.Stats("local").Writes; w != 1 {
+	if w := tightGate.Stats("default:local").Writes; w != 1 {
 		t.Errorf("second (rejected) mutation must not bump write counter; got %d", w)
 	}
 	if f.mutHits.Load() != mutHitsAfterFirst {

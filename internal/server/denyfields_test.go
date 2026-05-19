@@ -119,7 +119,7 @@ func TestQueryExecuteDenyFieldsAuditChainRecordsPermissionDenied(t *testing.T) {
 	_, _ = f.call(ctx, map[string]any{"query": "{ ping }"})
 
 	// gate.Record uses session id from context identity.
-	chain := f.gate.Chain(gate.SessionID("limited-token"))
+	chain := f.gate.Chain(gate.SessionID("default:limited-token"))
 	if len(chain) == 0 {
 		t.Fatalf("expected one evidence record, got 0")
 	}

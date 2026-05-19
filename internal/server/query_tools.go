@@ -357,11 +357,20 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 // MCP identity context. Falls back to "local" when there's no
 // remote identity (stdio + no-auth deployments), so audit + budget
 // still apply per-process.
+//
+// Multi-tenant: session IDs are prefixed with the tenant
+// ("<tenant>:<identity>") so per-tenant gate.Stats / Chain /
+// VerifyChainForSession stay isolated. Single-tenant deployments
+// (everyone in DefaultTenant) get the same "default:local" /
+// "default:<token>" pattern transparently — existing audit dirs
+// migrate naturally on first write under the new layout.
 func sessionFromContext(ctx context.Context) gate.SessionID {
+	tenant := TenantFromContext(ctx)
+	base := "local"
 	if id := mcp.IdentityFromContext(ctx); id != nil && id.ID != "" {
-		return gate.SessionID(id.ID)
+		base = id.ID
 	}
-	return "local"
+	return gate.SessionID(tenant + ":" + base)
 }
 
 func statusOf(r *upstream.Result) int {
