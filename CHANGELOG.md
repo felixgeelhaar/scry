@@ -6,6 +6,22 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.7.1 - 2026-05-19
+
+Bug-fix follow-up to v0.7.0's release pipeline. Two issues surfaced
+on the v0.7.0 tag push:
+
+### Fixed
+
+- **CVE GO-2025-4123 in jose2go** — govulncheck flagged jose2go
+  v1.5.0 for a JWE DoS via crafted high-compression-ratio tokens.
+  Bumped to v1.7.0. (matched the dependabot PR proposal.)
+- **Helm Publish workflow** — chart-releaser-action expected a
+  pre-existing gh-pages branch; v0.7.0 was the first tag with the
+  workflow + the branch didn't exist yet. Bootstrapped manually;
+  v0.7.1's helm-publish run is the first chart-releaser cycle
+  with a target branch.
+
 ## 0.7.0 - 2026-05-19
 
 v0.6 built the reproducible benchmark proof artifact. v0.7 closes
