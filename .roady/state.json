@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 86,
+  "version": 90,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -472,13 +472,21 @@
       "elapsed_minutes": 0
     },
     "v07-pq-named-schema": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "no-op — internal/pq/store.go already has `name TEXT NOT NULL UNIQUE` schema + Put(name,query), GetByName, GetByHash, List sorted by name. Earlier cycle (v0.4) shipped named PQs at storage level. Tool-surface gap addressed in v07-pq-named-tool."
+      ],
+      "started_at": "2026-05-19T19:33:33.814756+02:00",
+      "completed_at": "2026-05-19T19:34:15.909244+02:00",
       "elapsed_minutes": 0
     },
     "v07-pq-named-tool": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:34:22.580335+02:00",
       "elapsed_minutes": 0
     },
     "v07-redis-cache": {
@@ -534,11 +542,15 @@
       "elapsed_minutes": 0
     },
     "v07-tool-examples": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit a920ba3 (+ b253d87 lint fix) — 11 tool descriptions migrated to constants in tool_descriptions.go with Examples: blocks. Covers list_servers, schema_search/get, query_validate/cost/execute, schema_diff, auth_status/login, gate_status/chain."
+      ],
       "started_at": "2026-05-19T19:29:10.14357+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T19:33:26.556412+02:00",
+      "elapsed_minutes": 4
     },
     "v07-usage-counters": {
       "status": "pending",
@@ -551,5 +563,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:29:10.14357+02:00"
+  "updated_at": "2026-05-19T19:34:22.580335+02:00"
 }

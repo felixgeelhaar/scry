@@ -56,8 +56,9 @@ Examples:
 
 	descQueryExecute = `Run a GraphQL query against the named upstream and return the result. ALWAYS run query_validate + query_cost first — query_execute counts against the agent's execution budget. With multiple upstreams, set ` + "`server`" + `; otherwise the single configured upstream is used.
 
-Optional args:
-- ` + "`hash`" + `: SHA-256 of a persisted query (mutually exclusive with ` + "`query`" + `)
+Optional args (exactly one of query / hash / name; the other two stay empty):
+- ` + "`hash`" + `: SHA-256 of a persisted query registered via ` + "`scry pq add`" + `
+- ` + "`name`" + `: friendly name of a persisted query (more memorable than the hash)
 - ` + "`select`" + `: JMESPath expression projected against the response before return — cuts tokens dramatically on field-heavy queries
 - ` + "`paginate`" + `: {auto: true, max_pages: N} walks Relay-style {hasNextPage, endCursor} cursors automatically and concatenates ` + "`nodes[]`" + `
 

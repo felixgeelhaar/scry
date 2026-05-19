@@ -29,7 +29,8 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 	type ExecuteInput struct {
 		Server        string         `json:"server,omitempty" jsonschema:"description=upstream server name (omit when only one is configured)"`
 		Query         string         `json:"query,omitempty" jsonschema:"description=GraphQL query string (mutually exclusive with hash)"`
-		Hash          string         `json:"hash,omitempty" jsonschema:"description=SHA-256 hex of a persisted query registered via scry pq add (mutually exclusive with query)"`
+		Hash          string         `json:"hash,omitempty" jsonschema:"description=SHA-256 hex of a persisted query registered via scry pq add (mutually exclusive with query + name)"`
+		Name          string         `json:"name,omitempty" jsonschema:"description=friendly name of a persisted query registered via scry pq add (mutually exclusive with query + hash)"`
 		Variables     map[string]any `json:"variables,omitempty" jsonschema:"description=optional variables map"`
 		OperationName string         `json:"operation_name,omitempty"`
 		Select        string         `json:"select,omitempty" jsonschema:"description=optional JMESPath expression projected against the response body before return (e.g. 'data.user.{n: name, e: email}'); reduces tokens returned to the agent"`
@@ -96,11 +97,30 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			// `query`. The audit chain captures the resolved
 			// query's hash, so the chain stays correct whether
 			// the caller passed query text or a PQ hash.
-			if in.Hash != "" && in.Query != "" {
+			// Exactly one of query / hash / name. Count populated
+			// fields and reject conflicts up front so the audit
+			// chain captures pq_conflict cleanly.
+			populated := 0
+			if in.Query != "" {
+				populated++
+			}
+			if in.Hash != "" {
+				populated++
+			}
+			if in.Name != "" {
+				populated++
+			}
+			if populated > 1 {
 				ev.Str("outcome", "pq_conflict").Dur("dur", time.Since(start)).Send()
 				recordOutcome("pq_conflict", entry.Name, 0)
 				return renderExecuteError("pq_conflict",
-					"pass either `query` or `hash`, not both", nil), nil
+					"pass exactly one of `query`, `hash`, or `name`", map[string]any{
+						"got": map[string]bool{
+							"query": in.Query != "",
+							"hash":  in.Hash != "",
+							"name":  in.Name != "",
+						},
+					}), nil
 			}
 			if in.Hash != "" {
 				resolved, err := entry.PQ.GetByHash(ctx, in.Hash)
@@ -116,11 +136,25 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 				in.Query = resolved.Query
 				ev = ev.Str("pq_name", resolved.Name).Str("pq_hash", resolved.Hash)
 			}
+			if in.Name != "" {
+				resolved, err := entry.PQ.GetByName(ctx, in.Name)
+				if err != nil {
+					ev.Str("outcome", "pq_not_found").Dur("dur", time.Since(start)).Send()
+					recordOutcome("pq_not_found", entry.Name, 0)
+					return renderExecuteError("pq_not_found",
+						"no persisted query registered with that name — run `scry pq list "+entry.Name+"` to enumerate", map[string]any{
+							"name":   in.Name,
+							"server": entry.Name,
+						}), nil
+				}
+				in.Query = resolved.Query
+				ev = ev.Str("pq_name", resolved.Name).Str("pq_hash", resolved.Hash)
+			}
 			if in.Query == "" {
 				ev.Str("outcome", "invalid_query").Dur("dur", time.Since(start)).Send()
 				recordOutcome("invalid_query", entry.Name, 0)
 				return renderExecuteError("invalid_query",
-					"either `query` or `hash` is required", nil), nil
+					"either `query`, `hash`, or `name` is required", nil), nil
 			}
 
 			sdl, err := entry.Store.GetMeta(ctx, "full_sdl")
