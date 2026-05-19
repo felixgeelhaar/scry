@@ -125,4 +125,10 @@ Examples:
 Examples:
 - Input: {"id":1} → Output: {"removed_id":1,"server":"shopify"}
 - Input: {"id":999} → Output: {"error":"not_found","hint":"no webhook with that id — call schema_webhooks_list to enumerate"}`
+
+	descUsageStats = `Per-(tenant, session) usage counters: tool calls (by tool + outcome), upstream bytes in/out, avg latency, complexity consumed, dollars consumed (when a cost table is configured). Admin-only. Use for usage-based billing reconciliation or capacity planning.
+
+Examples:
+- Input: {} → Output: {"records":[{"tenant":"acme","session":"...","tool_calls":{"query_execute":42},"dollars_consumed":0.042, ...}, ...]}
+- Input: {"tenant":"acme"} → only acme's cells.`
 )

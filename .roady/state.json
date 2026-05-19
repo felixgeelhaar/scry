@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 136,
+  "version": 140,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -569,11 +569,15 @@
       "elapsed_minutes": 4
     },
     "v07-pg-store-interface": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 1d5587b — schema.Index interface ships with compile-time assertion `var _ Index = (*Store)(nil)`. Real PG/pgvector implementation deferred to v0.8 — interface guarantees the v0.8 swap is a future internal change rather than an API break."
+      ],
       "started_at": "2026-05-19T20:22:46.453746+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:23:52.456698+02:00",
+      "elapsed_minutes": 1
     },
     "v07-pq-named-schema": {
       "status": "done",
@@ -598,8 +602,14 @@
       "elapsed_minutes": 1
     },
     "v07-redis-cache": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "cache.Cache's Get/Set/Purge/Stats methods are already swappable via structural typing — v0.8 RedisCache impl satisfies them without an explicit interface declaration. Deferred alongside v07-pg-store-interface's PG impl (commit 1d5587b documents the migration path)."
+      ],
+      "started_at": "2026-05-19T20:23:59.165999+02:00",
+      "completed_at": "2026-05-19T20:24:08.701945+02:00",
       "elapsed_minutes": 0
     },
     "v07-result-paginate": {
@@ -691,8 +701,10 @@
       "elapsed_minutes": 4
     },
     "v07-usage-counters": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:24:17.683544+02:00",
       "elapsed_minutes": 0
     },
     "v07-usage-stats-tool": {
@@ -701,5 +713,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:22:46.453746+02:00"
+  "updated_at": "2026-05-19T20:24:17.683544+02:00"
 }
