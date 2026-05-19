@@ -6,6 +6,135 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.7.0 - 2026-05-19
+
+v0.6 built the reproducible benchmark proof artifact. v0.7 closes
+every Tier 1/2/3 gap the post-bench audit flagged — 14 features
+across security, UX, and SaaS scale primitives.
+
+### Added — Tier 1 (blocks adoption)
+
+- **Field-level authz** — clients.yml `deny_fields: [User.email, *.password, BillingAccount.*]`
+  patterns block individual fields even when Tools+Servers scope permits
+  query_execute. gqlparser AST walker resolves aliases + fragments +
+  inline fragments so renames can't bypass. Returns permission_denied
+  envelope listing every violating selection + the matching pattern.
+- **Result projection (JMESPath `select`)** — query_execute `select` arg
+  projects the upstream response before return; failures surface as
+  invalid_select envelopes distinct from invalid_query. Caches the
+  projected form so repeated identical (query, select) pairs hit the
+  cache with the smaller payload.
+- **Auto-pagination** — query_execute `paginate: {auto: true, max_pages: N}`
+  walks Relay-style pageInfo {hasNextPage, endCursor} cursors and
+  concatenates nodes[] across pages. Default cap 10 pages.
+- **Multi-arch Docker image** — `ghcr.io/felixgeelhaar/scry:vX.Y.Z` +
+  `:latest` published from goreleaser dockers/docker_manifests stanza
+  on every tag. linux/amd64 + linux/arm64. Distroless static base,
+  non-root, OCI labels.
+- **Helm chart** — `charts/scry/` with full configurability (image,
+  replicas, transport, servers.yml + clients.yml as inline OR existing
+  Secret, envFromSecrets for token-ref resolution, securityContext,
+  livenessProbe, podMonitor, persistence). New helm-publish workflow
+  packages + pushes to gh-pages on every tag.
+- **Raw k8s manifests** — `deploy/k8s/` for operators who don't use
+  Helm. Mirrors chart defaults so kubectl diff stays small.
+
+### Added — Tier 2 (friction tax)
+
+- **Few-shot examples in every tool description** — descriptions
+  centralised in tool_descriptions.go with prose + 1-2 examples
+  per tool covering happy path + known gotcha.
+- **scry init wizard** — interactive + `--yes` non-interactive modes.
+  Validates upstream URL, prompts for token (literal or token-ref),
+  detects existing entries, runs introspection probe, emits paste-
+  ready Claude Desktop / Cursor / Claude Code MCP config snippet.
+- **Named persisted queries** — query_execute accepts `name` in
+  addition to `hash`. CLI: `scry pq add <server> <name> --file q.graphql`
+  (already shipped); the MCP surface now resolves names too. Three-
+  way exclusivity (`query` XOR `hash` XOR `name`) with pq_conflict
+  envelope listing populated fields.
+- **Cache observability** — `cache_stats` + `cache_purge` admin MCP
+  tools. Surfaces per-server hit/miss/eviction counters + oldest-entry
+  age + hit_rate. Counters survive purges.
+- **schema_neighbors** — directed type-to-type edges (field /
+  interface / union / input) computed on every refresh + persisted
+  in a SQLite adjacency table. New MCP tool answers "what references
+  Customer?" in one round-trip; limit clamped to 50.
+
+### Added — Tier 3 (revenue / scale)
+
+- **Multi-tenant scoping** — Client.Tenant field in clients.yml;
+  Scope.TenantOf() defaults to "default". Session IDs flowing into
+  gate.Record / Stats / Chain are now `<tenant>:<identity>` so
+  per-tenant audit chains can't bleed across tenants in shared-
+  process deployments. Per-tenant servers.yml overlay loader
+  (LoadTenant + MergeTenant) with path-traversal-rejecting name
+  allowlist + 0600 perm check.
+- **OAuth2 client-credentials** — auth.type=oauth2 in servers.yml
+  with token_url + client_id + client_secret + scopes + refresh_skew.
+  client_id/secret accept token-ref schemes (env:// / file:// / op:// /
+  literal). skewedSource wrapper proactively refreshes ahead of
+  expiry; same source shared between upstream calls + introspection.
+- **schema-diff webhooks** — schema_diff_subscribe / list / remove
+  MCP tools (admin-only). Per-server SQLite registry persists
+  registrations; dispatcher fires HMAC-SHA256-signed POSTs to
+  receivers on every non-empty diff with exp-backoff retry on 5xx,
+  no-retry on 4xx. Secret returned ONCE at subscribe time; never
+  re-exposed.
+- **Usage metering** — usage.Tracker aggregates per-(tenant, session)
+  ToolCalls + ToolCallsByOutcome + UpstreamBytes in/out +
+  ComplexityConsumed + DollarsConsumed (via SetDollarsPerTool cost
+  table). New `usage_stats` admin tool returns the snapshot, with
+  optional tenant filter. In-memory at v0.7; pg-backed persistence
+  lands with v0.8's storage interface migration.
+
+### Added — Future-proofing
+
+- **schema.Embedder interface + HybridScore primitive** — v0.7 ships
+  the seam (interface + cosine + alpha-clamped BM25/cosine blend);
+  v0.8 lands the sqlite-vec + ONNX runtime + all-MiniLM-L6-v2
+  integration once v0.6 bench numbers reveal whether BM25-only
+  success rate justifies the binary-size + dep-chain cost.
+- **schema.Index storage interface** — compile-time-asserted
+  `var _ Index = (*Store)(nil)` guarantees the v0.8 PGStore swap is
+  a future internal change rather than an API break.
+- **cache.Cache structurally swappable** — Get/Set/Purge/Stats
+  methods make a v0.8 RedisCache impl a structural swap.
+
+### Changed
+
+- Session IDs are now `<tenant>:<identity>` (was bare identity).
+  Single-tenant deployments transparently become `default:local` /
+  `default:<token>` — preserves per-process isolation contract.
+- `query_execute` Hash/Query exclusivity broadened to three-way:
+  exactly one of `query`, `hash`, `name` must be populated.
+
+### Tests
+
+Test count grew significantly across the cycle:
+
+- internal/auth: tenant overlays, deny-field matchers, OAuth2 token
+  source + skew refresh
+- internal/schema: AST walker, BuildEdges adjacency, Embedder
+  primitives, Index interface compile-time check
+- internal/runtime: webhook store, dispatch + HMAC signing,
+  OAuth2 end-to-end with two httptest servers
+- internal/usage: counter math + snapshot isolation + cost-table
+  billing
+- internal/server: all new MCP tools (cache_stats/purge,
+  schema_neighbors, schema_diff_subscribe/list/remove,
+  usage_stats), deny-field integration, JMESPath projection,
+  paginate cursor traversal, scry init wizard
+
+### Deferred to v0.8
+
+- Real Embedder implementation (sqlite-vec + ONNX all-MiniLM-L6-v2)
+- PostgreSQL + pgvector storage backend
+- Redis cache backend
+- Per-handler instrumentation wiring of the usage Tracker
+- mcp-go ToolFilter upstream merge (still closed-unmerged)
+- mTLS identity propagation (still blocked on mcp-go #93)
+
 ## 0.5.0 - 2026-05-18
 
 ### Added

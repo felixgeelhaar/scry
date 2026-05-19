@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 140,
+  "version": 144,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -399,8 +399,10 @@
       "elapsed_minutes": 3
     },
     "v07-changelog-and-release": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:27:48.485975+02:00",
       "elapsed_minutes": 0
     },
     "v07-deploy-k8s-manifests": {
@@ -701,17 +703,27 @@
       "elapsed_minutes": 4
     },
     "v07-usage-counters": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 18c4c82 — usage.Tracker with per-(tenant, session) counters: ToolCalls, ToolCallsByOutcome, UpstreamBytes in/out, ComplexityConsumed, DollarsConsumed via SetDollarsPerTool cost table. 7 tracker tests + snapshot-mutation isolation."
+      ],
       "started_at": "2026-05-19T20:24:17.683544+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:27:24.803981+02:00",
+      "elapsed_minutes": 3
     },
     "v07-usage-stats-tool": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "shipped alongside Tracker in commit 18c4c82 — usage_stats MCP tool, admin-only via requireAdmin, optional tenant filter, nil-tracker no-op registration + 4 integration tests covering snapshot return, tenant filter, admin-only denial, nil-tracker skip."
+      ],
+      "started_at": "2026-05-19T20:27:32.438992+02:00",
+      "completed_at": "2026-05-19T20:27:41.587873+02:00",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:24:17.683544+02:00"
+  "updated_at": "2026-05-19T20:27:48.485975+02:00"
 }
