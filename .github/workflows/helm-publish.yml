@@ -23,6 +23,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure Git identity
+        # chart-releaser-action commits the regenerated index.yaml
+        # to gh-pages; git refuses commits without a user.name +
+        # user.email configured. Set to the github-actions bot
+        # so the gh-pages commit attribution is obvious.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Set up Helm
         uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
         with:
