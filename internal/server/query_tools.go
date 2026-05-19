@@ -138,6 +138,18 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 					}), nil
 			}
 
+			// Field-level authz: after gqlparser validation passes,
+			// walk the query's field selections and reject any that
+			// match a clients.yml deny_fields rule. Records the
+			// outcome in the audit chain as effect=read since the
+			// upstream was never reached.
+			if denied := checkDeniedFields(ctx, sdl, in.Query); denied != "" {
+				ev.Str("outcome", "permission_denied").Str("reason", "deny_fields").Dur("dur", time.Since(start)).Send()
+				recordOutcome("permission_denied", entry.Name, 0)
+				g.Record(sessionFromContext(ctx), entry.Name, gate.EffectRead, 0, in.Query, []byte(denied), "permission_denied")
+				return denied, nil
+			}
+
 			var complexity int
 			rpt, _ := schema.EstimateCost(sdl, in.Query)
 			complexity = rpt.Complexity

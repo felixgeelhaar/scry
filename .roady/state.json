@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 78,
+  "version": 80,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -355,15 +355,21 @@
       "elapsed_minutes": 5
     },
     "v07-authz-validator": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 73c5a1f — WalkFieldSelections + 9 unit tests covering plain, alias, inline fragment, fragment spread, nested, multiple operations, introspection skip, recursive guard, nil doc."
+      ],
+      "started_at": "2026-05-19T11:15:20.801301+02:00",
+      "completed_at": "2026-05-19T11:17:12.237437+02:00",
+      "elapsed_minutes": 1
+    },
+    "v07-authz-wire-into-tools": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T11:15:20.801301+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-authz-wire-into-tools": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T11:17:21.33892+02:00",
       "elapsed_minutes": 0
     },
     "v07-cache-purge-tool": {
@@ -527,5 +533,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T11:15:20.801301+02:00"
+  "updated_at": "2026-05-19T11:17:21.33892+02:00"
 }

@@ -87,7 +87,16 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 					"schema index has no SDL — wait for the next refresh or restart with --refresh"), nil
 			}
 			errs := schema.ValidateQuery(sdl, in.Query)
-			return renderValidation(errs), nil
+			if len(errs) > 0 {
+				return renderValidation(errs), nil
+			}
+			// Field-level authz: surface deny hits at validate
+			// time so agents discover policy violations before
+			// they spend execute budget.
+			if denied := checkDeniedFields(ctx, sdl, in.Query); denied != "" {
+				return denied, nil
+			}
+			return renderValidation(nil), nil
 		})
 
 	type DiffInput struct {
