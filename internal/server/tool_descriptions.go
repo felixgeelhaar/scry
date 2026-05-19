@@ -102,4 +102,10 @@ Examples:
 Examples:
 - Input: {"server":"shopify"} → Output: {"purged":[{"server":"shopify","entries_purged":12}]}
 - Input: {} → Output: list of every server with its purged count.`
+
+	descSchemaNeighbors = `Return the type's directed edges in the schema graph: what other types reference it (incoming) and what types it references (outgoing). Use to answer "what else depends on Customer?" without scanning the SDL. Depth=1; caps list lengths at 50 each for context-budget friendliness.
+
+Examples:
+- Input: {"name":"User"} → Output: {"type":"User","incoming":[{"src":"Query","dst":"User","field":"viewer","kind":"field"},...],"outgoing":[{"src":"User","dst":"Address","field":"primaryAddress","kind":"field"},...]}
+- Input: {"name":"DoesNotExist"} → Output: {"error":"not_found","hint":"...confirm the name via schema_search or schema_get"}.`
 )

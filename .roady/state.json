@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 96,
+  "version": 98,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -533,15 +533,21 @@
       "elapsed_minutes": 2
     },
     "v07-schema-neighbors-index": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 3e805de — BuildEdges + ReplaceNeighbors + Neighbors store API + 7 unit tests. Persist-on-refresh wired into runtime/manager.go."
+      ],
+      "started_at": "2026-05-19T19:40:11.195727+02:00",
+      "completed_at": "2026-05-19T19:43:13.871086+02:00",
+      "elapsed_minutes": 3
+    },
+    "v07-schema-neighbors-tool": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T19:40:11.195727+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-schema-neighbors-tool": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T19:43:20.051384+02:00",
       "elapsed_minutes": 0
     },
     "v07-scry-init-interactive": {
@@ -581,5 +587,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:40:11.195727+02:00"
+  "updated_at": "2026-05-19T19:43:20.051384+02:00"
 }

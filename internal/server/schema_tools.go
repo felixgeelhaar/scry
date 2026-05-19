@@ -99,6 +99,35 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 			return renderValidation(nil), nil
 		})
 
+	type NeighborsInput struct {
+		Server string `json:"server,omitempty" jsonschema:"description=upstream server name (omit when only one is configured)"`
+		Name   string `json:"name" jsonschema:"required,description=type name to look up neighbors for"`
+		Limit  int    `json:"limit,omitempty" jsonschema:"description=cap on incoming + outgoing edges; clamped to [1,50]"`
+	}
+	srv.Tool("schema_neighbors").
+		Description(descSchemaNeighbors).
+		Handler(func(ctx context.Context, in NeighborsInput) (string, error) {
+			entry, errResp := resolveServer(in.Server, mgr)
+			if errResp != "" {
+				return errResp, nil
+			}
+			set, err := entry.Store.Neighbors(ctx, in.Name, in.Limit)
+			if err != nil {
+				return "", fmt.Errorf("schema_neighbors: %w", err)
+			}
+			if len(set.Incoming) == 0 && len(set.Outgoing) == 0 {
+				return renderError("not_found",
+					fmt.Sprintf("no edges recorded for %q on server %q — confirm the name via schema_search or schema_get", in.Name, entry.Name)), nil
+			}
+			enc, _ := json.MarshalIndent(map[string]any{
+				"type":     in.Name,
+				"server":   entry.Name,
+				"incoming": set.Incoming,
+				"outgoing": set.Outgoing,
+			}, "", "  ")
+			return string(enc), nil
+		})
+
 	type DiffInput struct {
 		Server string `json:"server,omitempty"`
 	}
