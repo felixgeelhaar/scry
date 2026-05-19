@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 122,
+  "version": 124,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -420,8 +420,10 @@
       "elapsed_minutes": 0
     },
     "v07-diff-webhook-store": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:12:20.798791+02:00",
       "elapsed_minutes": 0
     },
     "v07-diff-webhook-tools": {
@@ -522,11 +524,15 @@
       "elapsed_minutes": 1
     },
     "v07-oauth2-wire-into-runtime": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 4a9f122 — Auth.OAuth2 yaml field + AddConfig.OAuth2 + buildOAuth2AuthSpec + introspection-time OAuth2 token reuse + 3 tests including end-to-end httptest verification that Bearer header reaches upstream."
+      ],
       "started_at": "2026-05-19T20:08:04.428987+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:12:10.704869+02:00",
+      "elapsed_minutes": 4
     },
     "v07-pg-store-interface": {
       "status": "pending",
@@ -659,5 +665,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:08:04.428987+02:00"
+  "updated_at": "2026-05-19T20:12:20.798791+02:00"
 }
