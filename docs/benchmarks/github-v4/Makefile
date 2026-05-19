@@ -42,7 +42,7 @@ build-scry:
 
 bench-summary:
 	@echo ">> aggregating results"
-	$(GO) run ./results -baseline results/baseline.jsonl -scry results/scry.jsonl -out results/summary.md
+	$(GO) run ./cmd/aggregate -baseline results/baseline.jsonl -scry results/scry.jsonl -out results/summary.md -json results/summary.json
 
 bench-fixtures:
 	@echo ">> WARNING: refreshing fixtures invalidates prior comparisons"
