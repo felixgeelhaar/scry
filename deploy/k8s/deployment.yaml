@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scry
+  namespace: scry
+  labels:
+    app.kubernetes.io/name: scry
+    app.kubernetes.io/version: v0.7.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scry
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scry
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        fsGroup: 65532
+      containers:
+        - name: scry
+          image: ghcr.io/felixgeelhaar/scry:v0.7.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - serve
+            - --transport
+            - http
+            - --listen
+            - ":7777"
+            - --cost-ceiling
+            - "1000"
+            - --cache-ttl
+            - "30s"
+          ports:
+            - name: http
+              containerPort: 7777
+              protocol: TCP
+          env:
+            - name: XDG_CONFIG_HOME
+              value: /etc/scry
+            - name: XDG_DATA_HOME
+              value: /var/scry
+            - name: OTEL_TRACES_EXPORTER
+              value: "none"
+          # envFrom:
+          #   - secretRef:
+          #       name: scry-upstream-tokens
+          volumeMounts:
+            - name: config
+              mountPath: /etc/scry/scry
+              readOnly: true
+            - name: data
+              mountPath: /var/scry
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+      volumes:
+        - name: config
+          secret:
+            secretName: scry-config
+            defaultMode: 0o600
+        - name: data
+          emptyDir: {}

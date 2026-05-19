@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 108,
+  "version": 110,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -450,15 +450,21 @@
       "elapsed_minutes": 0
     },
     "v07-helm-chart": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 505a3b2 — charts/scry/ with Chart.yaml + values.yaml + 7 templates (deployment, service, secret, ingress, podmonitor, pvc, _helpers + NOTES). Full configurability: image/tag, transport/listen, cost/cache/budget knobs, serversYaml inline-or-existingSecret, envFromSecrets for token-ref resolution, distroless securityContext, optional ingress/podMonitor/persistence."
+      ],
+      "started_at": "2026-05-19T19:54:00.876462+02:00",
+      "completed_at": "2026-05-19T19:57:11.920124+02:00",
+      "elapsed_minutes": 3
+    },
+    "v07-helm-publish": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T19:54:00.876462+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-helm-publish": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T19:57:19.77254+02:00",
       "elapsed_minutes": 0
     },
     "v07-multi-tenant-audit": {
@@ -617,5 +623,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:54:00.876462+02:00"
+  "updated_at": "2026-05-19T19:57:19.77254+02:00"
 }
