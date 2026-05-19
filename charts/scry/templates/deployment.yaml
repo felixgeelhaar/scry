@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scry.fullname" . }}
+  labels: {{- include "scry.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "scry.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "scry.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: scry
+          image: {{ include "scry.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          args:
+            - serve
+            - --transport
+            - {{ .Values.transport }}
+            - --listen
+            - {{ .Values.listen | quote }}
+            - --cost-ceiling
+            - {{ .Values.costCeiling | quote }}
+            {{- if .Values.cacheTTL }}
+            - --cache-ttl
+            - {{ .Values.cacheTTL | quote }}
+            {{- end }}
+            {{- if .Values.cacheMaxEntries }}
+            - --cache-max-entries
+            - {{ .Values.cacheMaxEntries | quote }}
+            {{- end }}
+            {{- if .Values.sessionWriteLimit }}
+            - --session-write-limit
+            - {{ .Values.sessionWriteLimit | quote }}
+            {{- end }}
+            {{- if .Values.sessionComplexityLimit }}
+            - --session-complexity-limit
+            - {{ .Values.sessionComplexityLimit | quote }}
+            {{- end }}
+            {{- if .Values.refreshInterval }}
+            - --refresh-interval
+            - {{ .Values.refreshInterval | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ regexReplaceAll "^:" .Values.listen "" | int }}
+              protocol: TCP
+          env:
+            - name: XDG_CONFIG_HOME
+              value: /etc/scry
+            - name: XDG_DATA_HOME
+              value: /var/scry
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFromSecrets }}
+          envFrom:
+            {{- range . }}
+            - secretRef:
+                name: {{ .name }}
+            {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/scry/scry
+              readOnly: true
+            - name: data
+              mountPath: /var/scry
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ include "scry.secretName" . }}
+            defaultMode: 0o600
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "scry.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}

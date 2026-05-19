@@ -1,0 +1,17 @@
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "scry.fullname" . }}
+  labels: {{- include "scry.labels" . | nindent 4 }}
+    {{- with .Values.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "scry.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.podMonitor.interval }}
+{{- end }}
