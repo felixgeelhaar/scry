@@ -1,6 +1,7 @@
 # Binaries
 /bin/
 /dist/
+/scry
 *.exe
 *.test
 *.out
