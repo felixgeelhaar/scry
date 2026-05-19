@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 82,
+  "version": 84,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -487,16 +487,22 @@
       "elapsed_minutes": 0
     },
     "v07-result-paginate": {
-      "status": "pending",
-      "path": "",
-      "elapsed_minutes": 0
-    },
-    "v07-result-select-jmespath": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T11:20:53.402787+02:00",
+      "started_at": "2026-05-19T11:23:31.514732+02:00",
       "elapsed_minutes": 0
+    },
+    "v07-result-select-jmespath": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f8afc39 — select arg + applyJMESPath helper + 8 unit tests. invalid_select envelope distinct from invalid_query. Cache stores projected form."
+      ],
+      "started_at": "2026-05-19T11:20:53.402787+02:00",
+      "completed_at": "2026-05-19T11:23:15.603164+02:00",
+      "elapsed_minutes": 2
     },
     "v07-schema-neighbors-index": {
       "status": "pending",
@@ -539,5 +545,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T11:20:53.402787+02:00"
+  "updated_at": "2026-05-19T11:23:31.514732+02:00"
 }

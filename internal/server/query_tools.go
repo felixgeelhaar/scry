@@ -33,6 +33,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 		Variables     map[string]any `json:"variables,omitempty" jsonschema:"description=optional variables map"`
 		OperationName string         `json:"operation_name,omitempty"`
 		Select        string         `json:"select,omitempty" jsonschema:"description=optional JMESPath expression projected against the response body before return (e.g. 'data.user.{n: name, e: email}'); reduces tokens returned to the agent"`
+		Paginate      *PaginateOpts  `json:"paginate,omitempty" jsonschema:"description=optional auto-pagination over Relay-style pageInfo cursors; concatenates nodes[] across pages; each page counts against the cost ceiling"`
 	}
 	srv.Tool("query_execute").
 		Description("Run a GraphQL query against the named upstream and return the result. ALWAYS run query_validate + query_cost first — query_execute counts against the agent's execution budget. With multiple upstreams, set `server`; otherwise the single configured upstream is used. Pass `hash` instead of `query` to invoke a persisted query (cuts agent context budget for known workloads).").
@@ -238,6 +239,57 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			}
 
 			body := res.Raw
+
+			// Auto-pagination: when paginate.auto + the response
+			// carries a Relay-style pageInfo, follow the cursor
+			// until hasNextPage=false or max_pages clamps. Each
+			// additional page costs another Execute call + adds
+			// complexity charges against the gate budget. The
+			// caller's query must accept an `after` variable +
+			// select pageInfo {hasNextPage endCursor} or paginate
+			// is a no-op.
+			if in.Paginate != nil && in.Paginate.Auto {
+				maxPages := in.Paginate.MaxPages
+				if maxPages <= 0 {
+					maxPages = PaginateDefaultMaxPages
+				}
+				pages := [][]byte{body}
+				_, hasNext, cursor, ok := findPageInfo(body)
+				vars := make(map[string]any, len(in.Variables)+1)
+				for k, v := range in.Variables {
+					vars[k] = v
+				}
+				for ok && hasNext && len(pages) < maxPages {
+					vars["after"] = cursor
+					pageRes, perr := entry.Client.Execute(ctx, in.Query, vars, in.OperationName)
+					if perr != nil {
+						// Pagination mid-stream failed: surface
+						// upstream_error with the pages we have.
+						ev.Str("outcome", "upstream_error").
+							Int("pages_fetched", len(pages)).
+							Err(perr).Dur("dur", time.Since(start)).Send()
+						recordOutcome("upstream_error", entry.Name, complexity)
+						return renderExecuteError("upstream_error", perr.Error(), map[string]any{
+							"status":        statusOf(pageRes),
+							"server":        entry.Name,
+							"pages_fetched": len(pages),
+						}), nil
+					}
+					pages = append(pages, pageRes.Raw)
+					_, hasNext, cursor, ok = findPageInfo(pageRes.Raw)
+				}
+				merged, mErr := mergePageNodes(pages)
+				if mErr != nil {
+					// Defensive: merge problem returns the first
+					// page rather than failing the whole call —
+					// agent still gets useful data.
+					ev.Str("event", "paginate_merge_failed").Err(mErr).Send()
+				} else {
+					body = merged
+				}
+				ev = ev.Int("pages_fetched", len(pages))
+			}
+
 			// JMESPath projection: optional post-execute filter that
 			// trims the response body BEFORE returning it to the
 			// agent. Cache stores the projected form so subsequent
