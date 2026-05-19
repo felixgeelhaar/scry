@@ -1,4 +1,4 @@
-// Package server: tool description constants with few-shot examples.
+// Package server holds tool description constants with few-shot examples.
 //
 // Descriptions live here rather than inline at every register* call
 // site so the few-shot examples — which are load-bearing for
