@@ -36,7 +36,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 		Paginate      *PaginateOpts  `json:"paginate,omitempty" jsonschema:"description=optional auto-pagination over Relay-style pageInfo cursors; concatenates nodes[] across pages; each page counts against the cost ceiling"`
 	}
 	srv.Tool("query_execute").
-		Description("Run a GraphQL query against the named upstream and return the result. ALWAYS run query_validate + query_cost first — query_execute counts against the agent's execution budget. With multiple upstreams, set `server`; otherwise the single configured upstream is used. Pass `hash` instead of `query` to invoke a persisted query (cuts agent context budget for known workloads).").
+		Description(descQueryExecute).
 		Handler(func(ctx context.Context, in ExecuteInput) (string, error) {
 			start := time.Now()
 			m := obs.Metrics()

@@ -35,7 +35,7 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 		Limit  int    `json:"limit,omitempty" jsonschema:"description=max snippets to return; default 10,maximum=50"`
 	}
 	srv.Tool("schema_search").
-		Description("Searchable view of an upstream GraphQL schema. Returns ranked type/field snippets matching the natural-language query. Call this FIRST before composing a query so the full SDL doesn't blow your context budget. With multiple upstreams, set `server` — call list_servers to enumerate.").
+		Description(descSchemaSearch).
 		Handler(func(ctx context.Context, in SearchInput) (string, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
@@ -53,7 +53,7 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 		Name   string `json:"name" jsonschema:"required,description=type or field name (e.g. 'Customer' or 'Query.customer')"`
 	}
 	srv.Tool("schema_get").
-		Description("Return the full SDL for a single named type or field. Use after schema_search to expand a specific result.").
+		Description(descSchemaGet).
 		Handler(func(ctx context.Context, in GetInput) (string, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
@@ -75,7 +75,7 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 		Query  string `json:"query" jsonschema:"required,description=GraphQL query string to validate"`
 	}
 	srv.Tool("query_validate").
-		Description("Static validation against the cached schema. Returns ok or a list of validation errors. Does NOT call upstream.").
+		Description(descQueryValidate).
 		Handler(func(ctx context.Context, in ValidateInput) (string, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
@@ -103,7 +103,7 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 		Server string `json:"server,omitempty"`
 	}
 	srv.Tool("schema_diff").
-		Description("Return the most recent schema diff for an upstream, computed at refresh time. Reports added / removed / breaking changes. Use to plan around upstream schema evolution; agents that cached query strings can spot when a referenced type / field has been removed before their next call fails validation.").
+		Description(descSchemaDiff).
 		Handler(func(ctx context.Context, in DiffInput) (string, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
@@ -122,7 +122,7 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 		Query  string `json:"query" jsonschema:"required,description=GraphQL query string to estimate"`
 	}
 	srv.Tool("query_cost").
-		Description("Estimate query complexity (depth × breadth × list-multipliers) before execution. Use to gate expensive queries against the agent's headroom budget.").
+		Description(descQueryCost).
 		Handler(func(ctx context.Context, in CostInput) (string, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {

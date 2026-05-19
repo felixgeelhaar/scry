@@ -21,7 +21,7 @@ import (
 func registerRuntimeTools(srv *mcp.Server, mgr *runtime.Manager) error {
 	type Empty struct{}
 	srv.Tool("list_servers").
-		Description("List every upstream scry can route to. Call this first to discover which `server` value to pass to schema_search / query_execute / etc. Returns name + upstream URL per entry; never returns secrets.").
+		Description(descListServers).
 		Handler(func(_ context.Context, _ Empty) (string, error) {
 			names := mgr.List()
 			out := make([]map[string]string, 0, len(names))

@@ -33,7 +33,7 @@ func registerAuthTools(srv *mcp.Server) error {
 		Server string `json:"server,omitempty" jsonschema:"description=optional server name; omit to list all"`
 	}
 	srv.Tool("auth_status").
-		Description("Return credential status (valid/expiring/expired/missing) for one or all configured servers. Never returns the token itself. Call before kicking off a long agent task to confirm credentials are healthy.").
+		Description(descAuthStatus).
 		Handler(func(_ context.Context, in StatusInput) (string, error) {
 			s, err := loadServers()
 			if err != nil {
@@ -61,7 +61,7 @@ func registerAuthTools(srv *mcp.Server) error {
 		Server string `json:"server" jsonschema:"required,description=server name to authenticate"`
 	}
 	srv.Tool("auth_login").
-		Description("Recover from auth_expired errors. v0 bearer-token flow is operator-driven; this tool returns the exact CLI command to run. Phase 2 will support agent-driven device-code flows for OAuth servers.").
+		Description(descAuthLogin).
 		Handler(func(ctx context.Context, in LoginInput) (string, error) {
 			if denied := requireAdmin(ctx, "auth_login"); denied != "" {
 				return denied, nil

@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 84,
+  "version": 86,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -487,11 +487,15 @@
       "elapsed_minutes": 0
     },
     "v07-result-paginate": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 6779fe0 — findPageInfo + mergePageNodes + auto-pagination loop with max_pages clamp. 7 new tests covering helpers and end-to-end cursor traversal across 3 pages, max_pages enforcement, no-pageInfo no-op. All 0-issue lint, 10/10 packages green."
+      ],
       "started_at": "2026-05-19T11:23:31.514732+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T11:31:07.288792+02:00",
+      "elapsed_minutes": 7
     },
     "v07-result-select-jmespath": {
       "status": "done",
@@ -530,8 +534,10 @@
       "elapsed_minutes": 0
     },
     "v07-tool-examples": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:29:10.14357+02:00",
       "elapsed_minutes": 0
     },
     "v07-usage-counters": {
@@ -545,5 +551,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T11:23:31.514732+02:00"
+  "updated_at": "2026-05-19T19:29:10.14357+02:00"
 }

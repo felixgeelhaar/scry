@@ -23,7 +23,7 @@ import (
 func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 	type Empty struct{}
 	srv.Tool("gate_status").
-		Description("Return the caller's session budget + audit-chain stats. Use BEFORE kicking off a long agent workflow to confirm headroom (writes_remaining, complexity_remaining). Returned identity name reflects the transport credential presented; stdio + no-auth deployments share a single 'local' session.").
+		Description(descGateStatus).
 		Handler(func(ctx context.Context, _ Empty) (string, error) {
 			session := sessionFromContext(ctx)
 			stats := g.Stats(session)
@@ -41,7 +41,7 @@ func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 		Limit  int  `json:"limit,omitempty"  jsonschema:"description=cap on records returned (newest first); 0 returns all,maximum=10000"`
 	}
 	srv.Tool("gate_chain").
-		Description("Return the caller's full evidence chain (SHA-256 tamper-evident audit log of every query_execute call). Each record carries query/response hashes — never the raw payloads. Optional `verify=true` re-derives every chain hash and reports the first mismatch. Use for compliance audits, incident response, or to export the chain to an external audit pipeline.").
+		Description(descGateChain).
 		Handler(func(ctx context.Context, in ChainInput) (string, error) {
 			session := sessionFromContext(ctx)
 			chain := g.Chain(session)
