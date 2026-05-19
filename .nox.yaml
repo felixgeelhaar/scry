@@ -39,6 +39,15 @@ scan:
     - docs/auth-design.md
     - docs/schema-index.md
     - README.md
+    # k8s manifests + Helm chart contain env://VAR token-ref examples
+    # that the generic secret detector misreads as hardcoded
+    # credentials. Same pattern as the workflow YAML waiver above —
+    # env:// is scry's runtime resolver scheme, not a literal secret.
+    # Classification: False Positive
+    # Last reviewed: 2026-05-19
+    - deploy/k8s/*.yaml
+    - charts/scry/values.yaml
+    - charts/scry/templates/secret.yaml
 
 plugins:
   # Auto-install on `nox scan` unless --no-auto-install is set. CI
