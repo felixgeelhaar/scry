@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 110,
+  "version": 114,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -404,8 +404,14 @@
       "elapsed_minutes": 0
     },
     "v07-deploy-k8s-manifests": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "shipped alongside helm-publish in commit 112e9b4 — deploy/k8s/ with namespace, secret, deployment, service, ingress samples + README explaining apply order. Mirrors charts/scry/ defaults so kubectl diff stays small."
+      ],
+      "started_at": "2026-05-19T19:59:29.90972+02:00",
+      "completed_at": "2026-05-19T19:59:38.097971+02:00",
       "elapsed_minutes": 0
     },
     "v07-diff-webhook-dispatch": {
@@ -461,11 +467,15 @@
       "elapsed_minutes": 3
     },
     "v07-helm-publish": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 112e9b4 — helm-publish.yml workflow with chart-releaser-action publishing to gh-pages, stamps Chart.yaml version+appVersion from git tag, helm lint gate."
+      ],
       "started_at": "2026-05-19T19:57:19.77254+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T19:59:21.797699+02:00",
+      "elapsed_minutes": 2
     },
     "v07-multi-tenant-audit": {
       "status": "pending",
@@ -473,8 +483,10 @@
       "elapsed_minutes": 0
     },
     "v07-multi-tenant-config": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:59:51.062016+02:00",
       "elapsed_minutes": 0
     },
     "v07-multi-tenant-routing": {
@@ -623,5 +635,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:57:19.77254+02:00"
+  "updated_at": "2026-05-19T19:59:51.062016+02:00"
 }

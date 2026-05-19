@@ -49,6 +49,11 @@ type Client struct {
 	Tools      []string `yaml:"tools"`       // ["*"] or explicit list
 	Servers    []string `yaml:"servers"`     // ["*"] or explicit list (matched against runtime server names)
 	DenyFields []string `yaml:"deny_fields"` // optional; see pattern shapes above
+	// Tenant scopes this client to one tenant in multi-tenant
+	// deployments. Empty = "default" tenant. Per-tenant server
+	// lists are layered from $XDG_CONFIG_HOME/scry/tenants/<tenant>.yml
+	// on top of the base servers.yml.
+	Tenant string `yaml:"tenant,omitempty"`
 }
 
 // DefaultClientsPath returns the canonical clients.yml location.
@@ -161,6 +166,23 @@ type Scope struct {
 	AllowAllServers     bool
 	AllowedServers      map[string]bool
 	DeniedFieldMatchers []*FieldMatcher
+	// Tenant carries forward Client.Tenant for downstream
+	// per-tenant scoping (audit dir layout, gate session IDs,
+	// per-tenant server overlays). "" → DefaultTenant.
+	Tenant string
+}
+
+// DefaultTenant is the bucket used when a client has no explicit
+// Tenant (single-tenant deployments + backward compat).
+const DefaultTenant = "default"
+
+// TenantOf returns s.Tenant or DefaultTenant when empty. Threaded
+// through every per-tenant filename + session-id derivation.
+func (s *Scope) TenantOf() string {
+	if s == nil || s.Tenant == "" {
+		return DefaultTenant
+	}
+	return s.Tenant
 }
 
 // BuildScope returns the resolved Scope for one client. knownServers
@@ -178,6 +200,7 @@ func (c Client) BuildScope(knownServers []string) (Scope, error) {
 		return s, fmt.Errorf("client %q: %w", c.Name, err)
 	}
 	s.DeniedFieldMatchers = matchers
+	s.Tenant = c.Tenant
 	for _, t := range c.Tools {
 		if t == "*" {
 			s.AllowAllTools = true
