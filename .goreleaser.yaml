@@ -40,6 +40,55 @@ checksum:
 snapshot:
   version_template: "{{ .Tag }}-next"
 
+# v0.7: multi-arch Docker images published to GitHub Container
+# Registry on every tag. Operators deploying hosted scry pull
+# `ghcr.io/felixgeelhaar/scry:vX.Y.Z` instead of building from
+# source.
+#
+# Requires GHCR_TOKEN — a PAT with packages:write on the
+# felixgeelhaar account, OR the workflow's GITHUB_TOKEN with the
+# `packages: write` permission (preferred). Wired in
+# .github/workflows/release.yml.
+dockers:
+  - id: scry-amd64
+    image_templates:
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-amd64"
+    dockerfile: Dockerfile.release
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=scry"
+      - "--label=org.opencontainers.image.description=Searchable GraphQL bridge for AI agents"
+      - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/scry"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+    goarch: amd64
+  - id: scry-arm64
+    image_templates:
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-arm64"
+    dockerfile: Dockerfile.release
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=scry"
+      - "--label=org.opencontainers.image.description=Searchable GraphQL bridge for AI agents"
+      - "--label=org.opencontainers.image.source=https://github.com/felixgeelhaar/scry"
+      - "--label=org.opencontainers.image.licenses=Apache-2.0"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/felixgeelhaar/scry:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-amd64"
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/felixgeelhaar/scry:latest"
+    image_templates:
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-amd64"
+      - "ghcr.io/felixgeelhaar/scry:{{ .Version }}-arm64"
+
 changelog:
   sort: asc
   filters:

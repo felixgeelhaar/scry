@@ -4,8 +4,11 @@ on:
   push:
     tags: ["v*"]
 
+# packages:write — push multi-arch Docker images to ghcr.io.
+# contents:write — goreleaser writes the GitHub Release object.
 permissions:
   contents: write
+  packages: write
 
 jobs:
   goreleaser:
@@ -19,6 +22,21 @@ jobs:
         with:
           go-version: "1.26"
           cache: true
+
+      # buildx + qemu power the multi-arch (linux/amd64 + linux/arm64)
+      # image build goreleaser orchestrates via the dockers: stanza.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
         with:

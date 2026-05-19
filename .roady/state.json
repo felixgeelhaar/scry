@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 104,
+  "version": 106,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -424,8 +424,10 @@
       "elapsed_minutes": 0
     },
     "v07-docker-image": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T19:51:19.371203+02:00",
       "elapsed_minutes": 0
     },
     "v07-embedding-extension": {
@@ -566,10 +568,14 @@
       "elapsed_minutes": 4
     },
     "v07-scry-init-mcp-snippet": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 0241fda — printMCPSnippet emits paste-ready JSON for Claude Desktop / Cursor / Claude Code at end of interactive init. Uses os.Executable() so the printed command path matches the just-installed binary."
+      ],
       "started_at": "2026-05-19T19:50:20.917674+02:00",
+      "completed_at": "2026-05-19T19:51:09.787243+02:00",
       "elapsed_minutes": 0
     },
     "v07-scry-init-noninteractive": {
@@ -605,5 +611,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T19:50:20.917674+02:00"
+  "updated_at": "2026-05-19T19:51:19.371203+02:00"
 }
