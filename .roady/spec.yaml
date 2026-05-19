@@ -5,51 +5,257 @@ description: |
 
   v0.1 shipped core; v0.2 hardened deployment; v0.3 closed the audit
   + caching loop; v0.4 sharpened dedupe / discoverability; v0.5
-  hardened the wedge (server coverage 33% → 63.8%, mutation E2E).
+  hardened the wedge (server coverage 33% → 63.8%, mutation E2E);
+  v0.6 built the reproducible benchmark proof artifact.
 
-  v0.6 proves the wedge externally. All five expert lenses
-  (ai/product/gtm/ux/architecture) converge on one blocker: zero
-  external users. The product is technically credible but
-  unvalidated against a real-world schema. v0.6 ships a
-  reproducible benchmark on GitHub's v4 GraphQL API (~700 types,
-  public, every reader can repro with a PAT). Measures token
-  compression, agent task success rate, latency, $$/task — full-
-  SDL baseline vs. scry-routed agent. The repo becomes self-
-  marketing: README screenshot IS the distribution asset.
+  v0.7 closes the feature gap across three tiers identified in the
+  post-bench gap audit:
+
+    Tier 1 (blocks adoption): field-level authz, embedding-backed
+      schema_search, Docker + Helm distribution, result projection +
+      pagination helpers.
+
+    Tier 2 (friction tax): few-shot examples in tool descriptions,
+      `scry init` wizard, named persisted queries, cache observability
+      tools, schema-relationship graph queries.
+
+    Tier 3 (revenue / scale unlock): multi-tenant isolation, OAuth2
+      client-credentials + JWT refresh, PostgreSQL + Redis backend,
+      schema_diff webhooks, usage metering primitives.
+
+  Scope is large — explicit goal is "ship every feature gap the v0.6
+  audit flagged" so v0.8 can shift back to bench-driven validation
+  + distribution motion with a complete product surface.
+
 features:
-  - id: github-v4-benchmark
-    title: reproducible benchmark on GitHub v4 schema
+  - id: field-level-authz
+    title: deny-list per field for clients.yml
     description: |
-      Ship docs/benchmarks/github-v4/ with everything needed to
-      reproduce two head-to-head agent task runs.
+      Per-tool authz exists (admin vs read-only); per-field doesn't.
+      Add `deny_fields: ["User.email", "*.password"]` to clients.yml
+      identity entries. query_validate + query_execute reject any
+      query touching a denied field with a permission_denied envelope
+      carrying the violating selection set. Pattern matching: exact
+      "Type.field" + glob "*.field" (any type) + glob "Type.*" (any
+      field).
 
-      Task picked for realism (multi-field, joins, requires
-      picking ~5 types out of 700): "find every PR I opened that
-      touched file X in the last month, with reviewer + merge
-      status." Encodes the schema-navigation cost the wedge is
-      meant to compress.
-
-      Two runners:
-        - baseline/: paste full GitHub SDL into the agent's
-          system prompt, run the task N=10 times.
-        - scry/: agent calls schema_search → query_validate →
-          query_execute, run the task N=10 times.
-
-      Metrics captured per trial: input tokens, output tokens,
-      wall-clock time, success (boolean — did the agent return
-      the right answer), $$ cost via published per-million-token
-      rates. Raw results in results.jsonl; summary table in
-      README.md.
-
-      Single `make bench` reproduces both runs from a clean
-      checkout given GITHUB_TOKEN + ANTHROPIC_API_KEY env vars.
-
-      Acceptance: baseline success rate measured; scry success
-      rate measured; token compression measured against the
-      "~50× reduction" claim in README.md. Numbers either confirm
-      the wedge (→ ship the HN/Apollo Slack drop) or refute it
-      (→ v0.7 plan grounded in observed failure modes, not
-      speculation).
+      Audit chain Evidence carries the deny match. Tests cover: no
+      rules (passthrough), one exact rule, glob match, transitive
+      access via fragment / inline-fragment, alias rename doesn't
+      bypass.
     requirements: []
+
+  - id: embedding-search
+    title: hybrid BM25 + vector schema_search
+    description: |
+      Replace pure BM25 with hybrid score: α·BM25 + (1−α)·cosine
+      similarity against type/field embedded descriptions. Agent
+      paraphrases ("customer contact info" → email) now hit when they
+      previously missed.
+
+      sqlite-vec extension (modernc.org/sqlite supports loadable
+      extensions). Embeddings via configurable provider — default to
+      a tiny on-disk model (all-MiniLM-L6-v2 via onnxruntime-go) so
+      ops doesn't need a separate embedding service. Falls back to
+      pure BM25 when extension or model unavailable.
+
+      Bench impact: feed v0.6 results back — embedding adoption gated
+      on bench showing pure BM25 misses on real schemas.
+    requirements: []
+
+  - id: result-projection
+    title: query_execute select + paginate helpers
+    description: |
+      query_execute returns full upstream response. Common waste:
+      `pullRequests(first:100) { nodes { …200 fields } }` blows the
+      agent's context whether it needs every field or not.
+
+      Add two optional arguments:
+        - select: JMESPath expression projected against the response
+          body before return. Errors → invalid_select envelope.
+        - paginate: { auto: bool, max_pages: int }. When true scry
+          follows pageInfo.hasNextPage cursors automatically up to
+          max_pages, concatenating nodes[].
+
+      Audit chain records selection projection + pagination depth so
+      operator can see post-filter cost reduction.
+    requirements: []
+
+  - id: docker-helm
+    title: published Docker image + Helm chart + k8s manifests
+    description: |
+      Binary covers desktop MCP clients; hosted scry needs k8s. Ship:
+        - multi-arch ghcr.io image via goreleaser (linux/amd64,
+          linux/arm64)
+        - charts/scry/ Helm chart (Service, Deployment, ConfigMap for
+          servers.yml + clients.yml, Secret for tokens, optional
+          PodMonitor for Prometheus)
+        - deploy/k8s/ raw manifests for users who don't use Helm
+        - GitHub Actions workflow that publishes the image on tag
+          push and pushes the chart to charts.yml on the gh-pages
+          branch
+
+      Image runs as non-root, includes a HEALTHCHECK, exposes
+      /healthz on the http transport. Existing Dockerfile gets a
+      polish pass.
+    requirements: []
+
+  - id: tool-docstring-examples
+    title: few-shot examples in tool descriptions
+    description: |
+      Tool descriptions are prose. Anthropic + OpenAI docs both
+      recommend 1-2 concrete examples in tool descriptions to help
+      models pick the right tool. scry has zero.
+
+      Add an `examples` array to each tool registration. Renderer
+      prepends them to the existing prose. Examples cover: the
+      happy path + the gotcha (e.g. schema_search empty-result hint;
+      query_execute hash-vs-query mutual exclusion).
+
+      No public API change — tool descriptions are strings that mcp-
+      go renders.
+    requirements: []
+
+  - id: scry-init
+    title: scry init wizard
+    description: |
+      Operator first-run = read README, edit servers.yml, hope.
+      `scry init [--upstream URL] [--token TOK]` prompts for
+      upstream, runs an introspection probe, writes
+      $XDG_CONFIG_HOME/scry/servers.yml with mode 0600, optionally
+      installs a sample claude_desktop_config.json snippet. Idempotent
+      — re-running detects existing server entries and offers to
+      replace / add / cancel.
+
+      Non-interactive mode (--upstream + --token + --yes) for
+      scripted setup.
+    requirements: []
+
+  - id: pq-named-aliases
+    title: persisted queries by name (not just hash)
+    description: |
+      query_execute(hash="abc123") forces the agent to memorize hashes.
+      Allow optional `name` field at pq creation time; the agent can
+      call query_execute(name="getCustomerPRs") and scry resolves
+      name → hash internally.
+
+      Backward compatible: hash-only PQs still work; named PQs adopt
+      an extra column in the per-server pq.db. CLI: scry pq add
+      --name <name> --query <query>; scry pq list shows name +
+      truncated hash.
+    requirements: []
+
+  - id: cache-observability
+    title: cache_stats + cache_purge MCP tools
+    description: |
+      Cache hit/miss counters exist in metrics but no MCP-surface for
+      operators. Two new tools:
+
+        - cache_stats() → JSON envelope of per-server hit_count,
+          miss_count, eviction_count, size_entries, oldest_entry_age.
+        - cache_purge(server?) → invalidates one or all caches without
+          restart. permission_denied for read-only clients.
+
+      Both gated by per-tool authz (admin only by default).
+    requirements: []
+
+  - id: schema-neighbors
+    title: schema_neighbors graph navigation tool
+    description: |
+      "What types reference Customer?" is the agent's most common
+      navigation question after schema_search. Today: search +
+      schema_get loops. New tool: schema_neighbors(name) returns
+      incoming references (fields that return this type) + outgoing
+      references (types this type's fields return), as a JSON edge
+      list. Bound by neighbor depth=1 to keep payloads small.
+
+      Computed once on introspection; cached in the SQLite index as
+      a graph adjacency table.
+    requirements: []
+
+  - id: multi-tenant
+    title: per-tenant isolation
+    description: |
+      clients.yml currently scopes one org. Add `tenant` field to
+      identity entries; per-tenant servers.yml override at
+      $XDG_CONFIG_HOME/scry/tenants/<tenant>.yml; per-tenant audit
+      directory + gate session-id namespacing.
+
+      The http transport reads tenant from a configurable header
+      (default: X-Scry-Tenant); stdio remains single-tenant. List_servers
+      and schema_* respect tenant scoping — an agent in tenant A
+      never sees servers/data from tenant B.
+    requirements: []
+
+  - id: oauth2-refresh
+    title: OAuth2 client-credentials + JWT refresh
+    description: |
+      Today: static bearer or mTLS. Most real upstreams (Salesforce,
+      Atlassian, Microsoft Graph) rotate via OAuth2 client-credentials
+      with short-lived JWTs. Add a new auth type "oauth2" to
+      servers.yml:
+
+        auth:
+          type: oauth2
+          token_url: https://upstream/oauth/token
+          client_id: env://X_CLIENT_ID
+          client_secret: env://X_CLIENT_SECRET
+          scopes: [read:graphql]
+          refresh_skew: 60s   # refresh this many seconds before exp
+
+      Background refresher kicks off N seconds before expiry; in-flight
+      requests during rotation queue or use the previous token until
+      the new one is ready (no auth_expired storm).
+    requirements: []
+
+  - id: pg-backend
+    title: PostgreSQL index + Redis cache for HA
+    description: |
+      SQLite is right for one process. Multi-instance HA needs shared
+      state. Add optional drivers:
+
+        - postgres for the schema index (replace store.go's sqlite
+          path behind a Store interface) + audit chain replay
+        - redis for the result cache (replace cache.Cache with a
+          backend interface)
+
+      Selected via servers.yml top-level `storage:` block; defaults
+      stay sqlite + in-memory so existing deployments don't change.
+    requirements: []
+
+  - id: schema-diff-webhook
+    title: schema_diff_subscribe + outbound webhook
+    description: |
+      Today: agents see diffs only via schema_diff polling. Add
+      schema_diff_subscribe(server, webhook_url) — registers a
+      webhook fired with the diff body on every successful refresh
+      that produces a non-empty diff. Persisted in
+      <indexdir>/<server>.webhooks.db. CLI: scry webhooks list /
+      remove. HMAC-signed payloads keyed off a per-webhook secret.
+    requirements: []
+
+  - id: usage-metering
+    title: usage_stats per session + per tenant
+    description: |
+      Audit chain hashes everything but isn't aggregated for billing.
+      Add a metering layer that accumulates per-session + per-tenant:
+        - tool_calls_total{tool, outcome}
+        - upstream_bytes_in / upstream_bytes_out
+        - upstream_latency_ms (avg + p95)
+        - complexity_consumed
+        - dollars_consumed (configurable per-tool cost table)
+
+      Exposed via two surfaces: usage_stats() MCP tool (operator-only)
+      + Prometheus /metrics endpoint with the same numbers.
+    requirements: []
+
+  - id: changelog-and-release
+    title: v0.7 CHANGELOG + tag + release notes
+    description: |
+      Final step: CHANGELOG sweep covering all 14 feature deliveries,
+      tag v0.7.0, ensure goreleaser publishes binaries + Docker image
+      + Helm chart in lockstep.
+    requirements: []
+
 constraints: []
-version: 0.6.0
+version: 0.7.0

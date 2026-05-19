@@ -31,11 +31,24 @@ type Clients struct {
 
 // Client is one row. Token accepts the same reference schemes as
 // the server auth fields (env://, file://, op://, literal).
+//
+// DenyFields blocks the client from selecting individual fields,
+// even when its Tools + Servers scope would otherwise permit
+// query_execute / query_validate. Pattern shapes:
+//
+//   - "Type.field"  — exact (Customer.email)
+//   - "*.field"     — any type, exact field (*.password)
+//   - "Type.*"      — exact type, any field (BillingAccount.*)
+//
+// The deny list is consulted after the gqlparser pass. A query that
+// selects any denied field returns a permission_denied envelope
+// listing the violating selections.
 type Client struct {
-	Name    string   `yaml:"name"`
-	Token   string   `yaml:"token"`
-	Tools   []string `yaml:"tools"`   // ["*"] or explicit list
-	Servers []string `yaml:"servers"` // ["*"] or explicit list (matched against runtime server names)
+	Name       string   `yaml:"name"`
+	Token      string   `yaml:"token"`
+	Tools      []string `yaml:"tools"`       // ["*"] or explicit list
+	Servers    []string `yaml:"servers"`     // ["*"] or explicit list (matched against runtime server names)
+	DenyFields []string `yaml:"deny_fields"` // optional; see pattern shapes above
 }
 
 // DefaultClientsPath returns the canonical clients.yml location.
@@ -124,6 +137,11 @@ func (c *Clients) Validate() error {
 		if len(cl.Servers) == 0 {
 			return fmt.Errorf("client %q: servers list is empty (use [\"*\"] for all)", cl.Name)
 		}
+		// Compile the deny patterns so a malformed clients.yml
+		// surfaces at boot instead of the first query_execute.
+		if _, err := CompileFieldMatchers(cl.DenyFields); err != nil {
+			return fmt.Errorf("client %q: %w", cl.Name, err)
+		}
 	}
 	return nil
 }
@@ -132,20 +150,34 @@ func (c *Clients) Validate() error {
 // scry runtime layer. Wildcards are pre-expanded against the
 // runtime's known server names so handler-time checks are O(1)
 // map lookups.
+//
+// DeniedFieldMatchers is the compiled form of Client.DenyFields,
+// consulted by the gqlparser-driven field walk inside query_validate
+// and query_execute.
 type Scope struct {
-	Name            string
-	AllowAllTools   bool
-	AllowedTools    map[string]bool
-	AllowAllServers bool
-	AllowedServers  map[string]bool
+	Name                string
+	AllowAllTools       bool
+	AllowedTools        map[string]bool
+	AllowAllServers     bool
+	AllowedServers      map[string]bool
+	DeniedFieldMatchers []*FieldMatcher
 }
 
 // BuildScope returns the resolved Scope for one client. knownServers
 // is the runtime.Manager's current server-name list — wildcards
 // expand against it so a "*" in clients.yml automatically picks up
 // servers added later via hot reload.
-func (c Client) BuildScope(knownServers []string) Scope {
+//
+// Returns the second value as an error when DenyFields contains an
+// invalid pattern. Callers may treat a compile error as fatal
+// (Validate already catches this) or skip the client.
+func (c Client) BuildScope(knownServers []string) (Scope, error) {
 	s := Scope{Name: c.Name}
+	matchers, err := CompileFieldMatchers(c.DenyFields)
+	if err != nil {
+		return s, fmt.Errorf("client %q: %w", c.Name, err)
+	}
+	s.DeniedFieldMatchers = matchers
 	for _, t := range c.Tools {
 		if t == "*" {
 			s.AllowAllTools = true
@@ -171,7 +203,7 @@ func (c Client) BuildScope(knownServers []string) Scope {
 		}
 	}
 	_ = knownServers // reserved for future wildcard-with-deny patterns
-	return s
+	return s, nil
 }
 
 // MayCallTool reports whether this scope permits the named MCP tool.

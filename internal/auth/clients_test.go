@@ -88,16 +88,22 @@ func TestClientsValidateChecksUniquenessAndScopes(t *testing.T) {
 }
 
 func TestBuildScopeExpandsWildcards(t *testing.T) {
-	full := Client{Name: "a", Token: "t", Tools: []string{"*"}, Servers: []string{"*"}}.BuildScope(nil)
+	full, err := Client{Name: "a", Token: "t", Tools: []string{"*"}, Servers: []string{"*"}}.BuildScope(nil)
+	if err != nil {
+		t.Fatalf("BuildScope: %v", err)
+	}
 	if !full.AllowAllTools || !full.AllowAllServers {
 		t.Errorf("wildcards should grant all, got %+v", full)
 	}
 
-	scoped := Client{
+	scoped, err := Client{
 		Name: "b", Token: "t",
 		Tools:   []string{"schema_search", "schema_get"},
 		Servers: []string{"shopify"},
 	}.BuildScope(nil)
+	if err != nil {
+		t.Fatalf("BuildScope scoped: %v", err)
+	}
 	if scoped.AllowAllTools || scoped.AllowAllServers {
 		t.Errorf("explicit lists should not be wildcard, got %+v", scoped)
 	}

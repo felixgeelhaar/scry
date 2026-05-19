@@ -422,7 +422,10 @@ func buildServeOpts(cfg Config) ([]mcp.ServeOption, error) {
 					return nil, fmt.Errorf("clients.yml %q: token collides with another registered token", cl.Name)
 				}
 				tokens[tok] = cl.Name
-				scope := cl.BuildScope(nil)
+				scope, err := cl.BuildScope(nil)
+				if err != nil {
+					return nil, fmt.Errorf("clients.yml: %w", err)
+				}
 				scopeRegistry[tok] = &scope
 			}
 			obs.L.Info().

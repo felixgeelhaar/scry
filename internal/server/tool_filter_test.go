@@ -92,11 +92,14 @@ func TestToolListFilterPassesThroughForAdmin(t *testing.T) {
 func TestToolListFilterAppliesClientsYAMLScope(t *testing.T) {
 	prev := scopeRegistry
 	t.Cleanup(func() { scopeRegistry = prev })
-	scope := auth.Client{
+	scope, err := auth.Client{
 		Name: "dashboard", Token: "t",
 		Tools:   []string{"schema_search", "list_servers"},
 		Servers: []string{"*"},
 	}.BuildScope(nil)
+	if err != nil {
+		t.Fatalf("BuildScope: %v", err)
+	}
 	scopeRegistry = map[string]*auth.Scope{"dash-token": &scope}
 
 	mw := toolListFilter()

@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 60,
+  "version": 76,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -278,37 +278,248 @@
       "elapsed_minutes": 4
     },
     "v06-bench-baseline-runner": {
-      "status": "pending",
+      "status": "done",
       "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit f2b6188 — baseline runner code complete + compiles. SDL fixture ~1.48MB / ~370k tokens (≈2× Sonnet 4.6 context). Live trial execution gated on valid ANTHROPIC_API_KEY (current env value returns 401). Once key works, single `make bench-baseline` populates results/baseline.jsonl."
+      ],
+      "started_at": "2026-05-19T10:33:35.515047+02:00",
+      "completed_at": "2026-05-19T10:33:44.116043+02:00",
       "elapsed_minutes": 0
     },
     "v06-bench-metrics-harness": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 02b5711 — cmd/aggregate + 8 tests. Renders summary.md + summary.json with compression, cost, latency, success rate, failure modes. Special-cases baseline-DNF (∞ compression). Decision rule encoded."
+      ],
+      "started_at": "2026-05-19T10:33:52.352508+02:00",
+      "completed_at": "2026-05-19T10:38:29.132835+02:00",
+      "elapsed_minutes": 4
     },
     "v06-bench-results-doc": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "commit c6ec7c1 — bench README rewritten with real numbers + decision rule + architecture tree; top-level README links the bench section. Results table left as placeholder pending first live trial."
+      ],
+      "started_at": "2026-05-19T10:38:37.960796+02:00",
+      "completed_at": "2026-05-19T10:39:54.113618+02:00",
+      "elapsed_minutes": 1
     },
     "v06-bench-scaffold": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 85e433e — directory tree, Makefile (bench/bench-baseline/bench-scry/bench-summary/bench-clean/bench-fixtures), README with go/no-go rule, separate go.mod to isolate runner deps"
+      ],
+      "started_at": "2026-05-19T09:06:08.538022+02:00",
+      "completed_at": "2026-05-19T09:08:21.390886+02:00",
+      "elapsed_minutes": 2
+    },
+    "v06-bench-scry-runner": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit faa5953 — scry runner + minimal stdio MCP client. Smoke against live GitHub v4: scry indexes 1756 types/7115 units in 4.3s, all 11 tools register cleanly. Live trials gated on ANTHROPIC_API_KEY."
+      ],
+      "started_at": "2026-05-19T10:27:01.046824+02:00",
+      "completed_at": "2026-05-19T10:33:01.860383+02:00",
+      "elapsed_minutes": 6
+    },
+    "v06-bench-task-script": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 0366f00 — task package with prompt/scorer/parser + 7 passing unit tests; cmd/record-fixtures wrote fixtures/expected.json (5 PRs: 50,58,59,60,64) against live GitHub"
+      ],
+      "started_at": "2026-05-19T09:14:38.971523+02:00",
+      "completed_at": "2026-05-19T09:19:42.110281+02:00",
+      "elapsed_minutes": 5
+    },
+    "v07-authz-rules-config": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T09:06:08.538022+02:00",
+      "started_at": "2026-05-19T11:09:50.785039+02:00",
       "elapsed_minutes": 0
     },
-    "v06-bench-scry-runner": {
+    "v07-authz-validator": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     },
-    "v06-bench-task-script": {
+    "v07-authz-wire-into-tools": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-cache-purge-tool": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-cache-stats-tool": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-changelog-and-release": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-deploy-k8s-manifests": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-diff-webhook-dispatch": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-diff-webhook-store": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-diff-webhook-tools": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-docker-image": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-embedding-extension": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-embedding-hybrid-score": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-embedding-onnx": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-helm-chart": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-helm-publish": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-multi-tenant-audit": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-multi-tenant-config": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-multi-tenant-routing": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-oauth2-token-source": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-oauth2-wire-into-runtime": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-pg-store-interface": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-pq-named-schema": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-pq-named-tool": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-redis-cache": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-result-paginate": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-result-select-jmespath": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-schema-neighbors-index": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-schema-neighbors-tool": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-scry-init-interactive": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-scry-init-mcp-snippet": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-scry-init-noninteractive": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-tool-examples": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-usage-counters": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v07-usage-stats-tool": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T09:06:08.538022+02:00"
+  "updated_at": "2026-05-19T11:09:50.785039+02:00"
 }
