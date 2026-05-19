@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 76,
+  "version": 78,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -344,15 +344,21 @@
       "elapsed_minutes": 5
     },
     "v07-authz-rules-config": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 6221f1c — Client.DenyFields + Scope.DeniedFieldMatchers + 12 unit tests. All pattern shapes (Type.field, *.field, Type.*) and rejection modes covered. BuildScope returns (Scope, error); callers updated."
+      ],
+      "started_at": "2026-05-19T11:09:50.785039+02:00",
+      "completed_at": "2026-05-19T11:15:11.751204+02:00",
+      "elapsed_minutes": 5
+    },
+    "v07-authz-validator": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-19T11:09:50.785039+02:00",
-      "elapsed_minutes": 0
-    },
-    "v07-authz-validator": {
-      "status": "pending",
-      "path": "",
+      "started_at": "2026-05-19T11:15:20.801301+02:00",
       "elapsed_minutes": 0
     },
     "v07-authz-wire-into-tools": {
@@ -521,5 +527,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T11:09:50.785039+02:00"
+  "updated_at": "2026-05-19T11:15:20.801301+02:00"
 }
