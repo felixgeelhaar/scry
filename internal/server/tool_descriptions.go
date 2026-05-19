@@ -108,4 +108,21 @@ Examples:
 Examples:
 - Input: {"name":"User"} → Output: {"type":"User","incoming":[{"src":"Query","dst":"User","field":"viewer","kind":"field"},...],"outgoing":[{"src":"User","dst":"Address","field":"primaryAddress","kind":"field"},...]}
 - Input: {"name":"DoesNotExist"} → Output: {"error":"not_found","hint":"...confirm the name via schema_search or schema_get"}.`
+
+	descSchemaDiffSubscribe = `Register an outbound webhook URL that scry POSTs to on every refresh that produces a non-empty schema diff. Admin-only. Returns a one-time secret used to HMAC-sign the body (header X-Scry-Signature, algo SHA-256). 4xx receivers skip retry; 5xx retries with exp backoff up to 3 times.
+
+Examples:
+- Input: {"url":"https://hooks.example.com/scry-diffs"} → Output: {"id":1,"url":"...","secret":"<64-hex-chars>","hint":"store this secret now — scry only returns it once."}
+- Input: {"url":"not a url"} → Output: {"error":"invalid_url","hint":"webhook url must be a fully-qualified https:// (or http:// for testing) URL"}.`
+
+	descSchemaWebhooksList = `List the schema-diff webhook registrations for a server. Admin-only. Secret is NOT returned — only Register exposes it. Use schema_webhooks_remove with the id to deregister.
+
+Examples:
+- Input: {} → Output: {"server":"shopify","webhooks":[{"id":1,"url":"...","created_at":"..."}]}`
+
+	descSchemaWebhooksRemove = `Remove a schema-diff webhook by id. Admin-only.
+
+Examples:
+- Input: {"id":1} → Output: {"removed_id":1,"server":"shopify"}
+- Input: {"id":999} → Output: {"error":"not_found","hint":"no webhook with that id — call schema_webhooks_list to enumerate"}`
 )

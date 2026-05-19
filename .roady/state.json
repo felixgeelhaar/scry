@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 126,
+  "version": 128,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -415,11 +415,15 @@
       "elapsed_minutes": 0
     },
     "v07-diff-webhook-dispatch": {
-      "status": "in_progress",
+      "status": "done",
       "path": "",
       "owner": "ai-agent",
+      "evidence": [
+        "commit 9369cb8 — WebhookDispatcher with HMAC-SHA256 body signing, exp-backoff retry on 5xx, no-retry on 4xx, persistAndEmitDiff fires goroutines on every non-empty diff. 6 dispatch tests + integrated webhookStore lifecycle in Entry."
+      ],
       "started_at": "2026-05-19T20:14:35.182605+02:00",
-      "elapsed_minutes": 0
+      "completed_at": "2026-05-19T20:18:10.402466+02:00",
+      "elapsed_minutes": 3
     },
     "v07-diff-webhook-store": {
       "status": "done",
@@ -433,8 +437,10 @@
       "elapsed_minutes": 2
     },
     "v07-diff-webhook-tools": {
-      "status": "pending",
+      "status": "in_progress",
       "path": "",
+      "owner": "ai-agent",
+      "started_at": "2026-05-19T20:18:19.732127+02:00",
       "elapsed_minutes": 0
     },
     "v07-docker-image": {
@@ -671,5 +677,5 @@
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-19T20:14:35.182605+02:00"
+  "updated_at": "2026-05-19T20:18:19.732127+02:00"
 }
