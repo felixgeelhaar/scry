@@ -3,6 +3,77 @@
   "spec_id": "scry",
   "tasks": [
     {
+      "id": "v06-bench-scaffold",
+      "title": "scaffold docs/benchmarks/github-v4 + Makefile",
+      "description": "Create docs/benchmarks/github-v4/ with subdirs baseline/, scry/, results/. Top-level Makefile targets: bench (runs both), bench-baseline, bench-scry, bench-clean. README.md placeholder with repro instructions (env vars, prerequisites). go.mod or pyproject.toml depending on runner language (decide: Python preferred for fast scripting with anthropic SDK + httpx; Go acceptable if reusing scry's mcp-go client).",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
+      "id": "v06-bench-task-script",
+      "title": "encode the realistic agent task",
+      "description": "Define the canonical benchmark task: 'find every PR I opened that touched file \u003cX\u003e in the last 30 days, return title + reviewer + merge status'. Encode as a fixed natural-language prompt the agent receives. Define the ground-truth answer for evaluation: a static fixture of expected PRs derived from a fixed query against GitHub at benchmark-record time (pinned via repo + date range so re-runs are deterministic). Ground truth lives in fixtures/expected.json.",
+      "priority": "high",
+      "estimate": "3h",
+      "depends_on": [
+        "v06-bench-scaffold"
+      ],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
+      "id": "v06-bench-baseline-runner",
+      "title": "baseline: full-SDL-in-system-prompt agent",
+      "description": "baseline/runner.py (or .go). Loads the GitHub v4 SDL (downloaded once via introspection, committed to fixtures/github-v4.sdl). Builds a Claude conversation with the SDL in the system prompt + the canonical task. Lets the model emit a GraphQL query via tool-use; executes against GitHub v4 with GITHUB_TOKEN; returns response. Loops 10 trials. Captures per-trial: input_tokens, output_tokens, latency_ms, returned_answer, matches_ground_truth (bool). Writes results/baseline.jsonl.",
+      "priority": "high",
+      "estimate": "5h",
+      "depends_on": [
+        "v06-bench-task-script"
+      ],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
+      "id": "v06-bench-scry-runner",
+      "title": "scry-routed agent runner",
+      "description": "scry/runner.py. Spawns scry as MCP subprocess pointed at GitHub v4 (scry serve --upstream https://api.github.com/graphql --auth env://GITHUB_TOKEN). Builds a Claude conversation with NO SDL in system prompt — only the canonical task. Wires Claude's MCP client to scry's stdio. Agent must call schema_search → query_validate → query_execute. Same 10 trials, same metrics, results/scry.jsonl. Crucial: keep the agent's task prompt identical to baseline so only the schema-access path varies.",
+      "priority": "high",
+      "estimate": "6h",
+      "depends_on": [
+        "v06-bench-task-script"
+      ],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
+      "id": "v06-bench-metrics-harness",
+      "title": "results aggregation + comparison table",
+      "description": "results/aggregate.py reads baseline.jsonl + scry.jsonl, produces summary.md: side-by-side table (avg input tokens, avg output tokens, p50/p95 latency, success rate, $$ per trial at Claude Sonnet 4.5 pricing, token compression ratio). Computes the headline number: tokens saved per task. Output also as raw summary.json for downstream consumption. Run via `make bench-summary`.",
+      "priority": "medium",
+      "estimate": "3h",
+      "depends_on": [
+        "v06-bench-baseline-runner",
+        "v06-bench-scry-runner"
+      ],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
+      "id": "v06-bench-results-doc",
+      "title": "README.md with numbers + go/no-go decision",
+      "description": "docs/benchmarks/github-v4/README.md: prerequisites, env vars, one-line `make bench` repro. Embed the summary table from v06-bench-metrics-harness. Explicit go/no-go interpretation: if scry success rate \u003e= 85% and token compression \u003e= 10x, ship the HN/Apollo Slack drop with this README screenshot. If below either threshold, v0.7 plan grounded in the observed failure modes — likely candidates: embedding-backed schema_search, always-envelope response shape, examples in tool docstrings. Update top-level README.md to link the benchmark.",
+      "priority": "medium",
+      "estimate": "2h",
+      "depends_on": [
+        "v06-bench-metrics-harness"
+      ],
+      "feature_id": "github-v4-benchmark",
+      "source": {}
+    },
+    {
       "id": "v05-server-query-execute-coverage",
       "title": "Unit tests for every query_execute outcome envelope",
       "description": "internal/server/query_execute_test.go (new). Build a test harness that registers query_execute against a fake mcp.Server + fake runtime.Manager with one Entry whose Cache/PQ/Client are injectable. Drive the handler closure directly via the registered tool's Handler func. Assert envelope shape + recorded gate evidence + metric counters per outcome:\n - invalid_query: ValidateQuery returns errors\n - cost_exceeded: complexity \u003e cost ceiling\n - budget_exceeded: pre-fill gate write counter to max\n - unknown_server: missing server name + multi-server manager\n - permission_denied: read-only identity in ctx\n - permission_denied_server: clients.yml scope rejects server\n - auth_expired: fake upstream returns 401\n - upstream_error: fake upstream returns 500\n - rate_limited: rate-limit transport rejects\n - pq_not_found: hash with no registered entry\n - pq_conflict: both query + hash set\n - ok_cached: pre-populate entry.Cache\n - ok: full success path\nLifts internal/server coverage from 33% toward 60%.",
@@ -10,6 +81,210 @@
       "estimate": "12h",
       "depends_on": null,
       "feature_id": "server-coverage",
+      "source": {}
+    },
+    {
+      "id": "v02-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.2.0",
+      "description": "Move every v0.2 commit from CHANGELOG.md `Unreleased` into a `## 0.2.0 - YYYY-MM-DD` section grouped by Added/Changed/Fixed/Security. Update README badges if version-pinned. Confirm `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.2.0 + push. Release workflow publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, the brew formula bump fires too.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v02-custom-auth-headers",
+        "v02-per-server-rate-limit",
+        "v02-keychain-token-ref",
+        "v02-audit-rotation",
+        "v02-race-stress",
+        "v02-scry-doctor",
+        "v02-deployment-guide",
+        "v02-tool-filter-upstream"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    },
+    {
+      "id": "v03-audit-otel-logs",
+      "title": "Emit each Evidence record as an OTel log",
+      "description": "internal/obs/audit.go: thin wrapper that converts an Evidence record to an OTel LogRecord (timestamp, body=summary, attrs={server, effect, complexity, outcome, query_hash, response_hash, chain_hash, session}). Init in cmd/scry/main.go alongside tracer + meter; honour OTEL_LOGS_EXPORTER (none|otlp|stdout). Gate.Record gains a single Emit() call after the existing append path so JSONL stays the durable local copy. Tests: stdout exporter renders each record; no-op provider absorbs silently; redaction — no raw query/response bodies in attrs (hashes only).",
+      "priority": "high",
+      "estimate": "6h",
+      "depends_on": null,
+      "feature_id": "audit-otel-logs",
+      "source": {}
+    },
+    {
+      "id": "v04-mtls-identity",
+      "title": "mTLS subject CN → MCP Identity middleware",
+      "description": "1) internal/server/mtls_identity.go: HTTP middleware that reads req.TLS.PeerCertificates[0]. If non-empty: build Identity{ID: subjectCN, Name: subjectCN}, store via mcp.ContextWithIdentity. 2) buildServeOpts wires this middleware BEFORE BearerAuth so mTLS identity takes precedence when both are presented. 3) Tests: synthesised request with PeerCertificates → identity in context matches CN; no cert → middleware no-ops, BearerAuth proceeds; both cert + bearer → cert wins.",
+      "priority": "medium",
+      "estimate": "8h",
+      "depends_on": [
+        "v04-cache-metrics"
+      ],
+      "feature_id": "mtls-identity",
+      "source": {}
+    },
+    {
+      "id": "v04-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.4.0",
+      "description": "Move v0.4 work from Unreleased into dated section. Added/Changed groups. README badge updates if version-pinned. `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.4.0 + push. Release workflow auto-publishes via goreleaser.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v04-cache-metrics",
+        "v04-fuzz-tests",
+        "v04-federation-aware",
+        "v04-persisted-queries",
+        "v04-mtls-identity"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    },
+    {
+      "id": "v04-fuzz-tests",
+      "title": "Fuzz harness for ParseSDL, gate.Classify, cache.Key",
+      "description": "Three FuzzXxx funcs in their respective packages: FuzzParseSDL (random bytes → ParseSDL must not panic), FuzzClassify (random strings → Classify always returns one of three Effects), FuzzCacheKey (random inputs → Key is deterministic + collision-free for distinct inputs). Build-tagged via go test -fuzz pattern. Nightly CI workflow (.github/workflows/fuzz.yml) runs each for 5min. Crashers go into testdata/fuzz/\u003cfunc\u003e/.",
+      "priority": "medium",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "fuzz-tests",
+      "source": {}
+    },
+    {
+      "id": "v03-changelog-and-release",
+      "title": "CHANGELOG sweep + tag v0.3.0",
+      "description": "Promote Unreleased into ## 0.3.0 section. Add/Changed/Fixed groups. README badge updates if version-pinned. Final `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...`. Tag v0.3.0 + push. Release workflow auto-publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, brew formula bumps too.",
+      "priority": "high",
+      "estimate": "2h",
+      "depends_on": [
+        "v03-anchor-sidecar",
+        "v03-audit-otel-logs",
+        "v03-tool-filter-adopt",
+        "v03-schema-diff-alerts",
+        "v03-query-result-cache"
+      ],
+      "feature_id": "core-foundation",
+      "source": {}
+    },
+    {
+      "id": "v02-per-server-rate-limit",
+      "title": "Wire fortify rate limiter per server",
+      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
+      "priority": "high",
+      "estimate": "5h",
+      "depends_on": null,
+      "feature_id": "per-server-rate-limit",
+      "source": {}
+    },
+    {
+      "id": "v02-tool-filter-upstream",
+      "title": "Adopt mcp-go ToolFilter once #90 ships (or upstream the PR)",
+      "description": "Check status of mcp-go #90 weekly through v0.2 cycle. If merged + released: bump dep, swap internal/server/tool_filter.go for the upstream-provided `mcp.ToolFilter(predicate) Middleware`, delete the wrapper. If still open at v0.2 freeze: open a PR against mcp-go ourselves with the internal/server/tool_filter.go implementation refactored to use typed handler internals. Acceptance: scry doesn't ship its own tool-list filter middleware by v0.2.0.",
+      "priority": "low",
+      "estimate": "3h",
+      "depends_on": null,
+      "feature_id": "tool-filter-upstream",
+      "source": {}
+    },
+    {
+      "id": "v04-federation-aware",
+      "title": "Detect Apollo federated upstreams + tag subgraphs in search",
+      "description": "1) schema.IntrospectFederation(): probe `{ _service { sdl } }` after the normal introspection; on success, parse the returned SDL with @key/@external directive awareness. 2) schema.SearchUnit gains a Subgraph string field. 3) runtime.refreshEntry calls federation probe; populates Subgraph on each unit when present. 4) renderSearchResults shows subgraph in markdown table. 5) Test: stub upstream returning federated SDL → units carry subgraph; non-federated upstream → Subgraph empty (no regression).",
+      "priority": "medium",
+      "estimate": "10h",
+      "depends_on": [
+        "v04-cache-metrics"
+      ],
+      "feature_id": "federation-aware",
+      "source": {}
+    },
+    {
+      "id": "v03-schema-diff-alerts",
+      "title": "Schema diff alerts + schema_diff MCP tool",
+      "description": "internal/schema/diff.go: compare two *Schema instances, return added/removed/changed type names with a kind flag (additive vs breaking). runtime.refreshEntry calls Diff() against the previous SDL, persists last-N diffs in meta, emits log + metric `scry.schema.changes_total{kind}`. New MCP tool schema_diff(server, limit) returns the last N diffs. Tests: identical schemas → empty diff; added field → additive; removed field → breaking; changed required arg → breaking.",
+      "priority": "medium",
+      "estimate": "10h",
+      "depends_on": [
+        "v03-audit-otel-logs"
+      ],
+      "feature_id": "schema-diff-alerts",
+      "source": {}
+    },
+    {
+      "id": "v04-cache-metrics",
+      "title": "Wire cache hit/miss counters into query_execute",
+      "description": "Add ScryMeters.CacheHits + ScryMeters.CacheMisses Int64Counter, dimensioned by server label. Increment from query_execute right after cache.Get returns hit/miss (only for effect=read; mutations don't touch cache). Test: hit/miss recorded with correct outcome + server attribute. Update README observability section to list the new metrics.",
+      "priority": "high",
+      "estimate": "3h",
+      "depends_on": null,
+      "feature_id": "cache-metrics",
+      "source": {}
+    },
+    {
+      "id": "v02-keychain-token-ref",
+      "title": "keychain:// token-ref via 99designs/keyring",
+      "description": "Add ResolveToken case for keychain://service.account refs. Use 99designs/keyring (cross-platform: macOS Keychain, libsecret, Windows DPAPI). On keyring-unavailable error: return clear hint pointing operator to file:// fallback. Tests: parse keychain:// ref, mock keyring backend with table-driven cases, headless fallback path emits actionable error.",
+      "priority": "medium",
+      "estimate": "8h",
+      "depends_on": null,
+      "feature_id": "keychain-token-ref",
+      "source": {}
+    },
+    {
+      "id": "v02-audit-rotation",
+      "title": "Audit JSONL size-based rotation with chain continuity",
+      "description": "Add --audit-max-size (50MiB default) + --audit-keep (5 default). On rollover: rename \u003csession\u003e.jsonl→\u003csession\u003e.jsonl.1, shift older suffixes, open new .jsonl. Critical: chain hash continuity across files — first record of new file uses last record's ChainHash of .jsonl.1 as prev. VerifyChain must verify across the whole sequence. Tests: rollover triggers at threshold, chain verifies end-to-end across 5+ rotations, keep-N truncates oldest.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": null,
+      "feature_id": "audit-rotation",
+      "source": {}
+    },
+    {
+      "id": "v02-race-stress",
+      "title": "Race-stress harness for hot-reload + Gate concurrency",
+      "description": "Build-tagged (`stress`) test under internal/server/. Spawn N concurrent goroutines: half issuing query_execute against fakeUpstream, quarter rewriting servers.yml to trigger Replace(), quarter calling g.Record on shared session. Run for 30s; -race must report 0 races + 0 fatals. CI workflow: nightly job (cron) that runs the stress tag; not blocking on PR.",
+      "priority": "high",
+      "estimate": "8h",
+      "depends_on": [
+        "v02-audit-rotation",
+        "v02-custom-auth-headers"
+      ],
+      "feature_id": "race-stress",
+      "source": {}
+    },
+    {
+      "id": "v03-anchor-sidecar",
+      "title": "Audit chain anchor sidecar closes truncation gap",
+      "description": "Write \u003csession\u003e.anchor next to the JSONL files holding the ChainHash of the oldest-still-retained record. On rotation truncation, refresh the anchor to point at the new oldest record. On load, read the anchor and use it as the initial prev-hash so VerifyChain succeeds end-to-end even after archives drop. Tests: keep=3 truncate-then-verify case from v0.2's TestAuditRotationKeepTruncatesAndDocumentsBoundary now passes cleanly; anchor file 0600 perms; missing anchor falls back to current behaviour (genesis prev=\"\").",
+      "priority": "high",
+      "estimate": "8h",
+      "depends_on": null,
+      "feature_id": "anchor-sidecar",
+      "source": {}
+    },
+    {
+      "id": "v03-query-result-cache",
+      "title": "TTL query result cache",
+      "description": "internal/cache package with TTL-bounded Get/Set per upstream entry. Key = SHA-256(query|variables|operationName). Wired into query_execute: bypass for effect=write, otherwise check cache before upstream call. On hit: recordOutcome(\"ok_cached\", ...), gate.Record with outcome=ok_cached so chain stays accurate, return cached body. On miss: run upstream + Set on success. Operator knobs: --cache-ttl (default 30s, 0 disables), --cache-max-entries (default 1000). Metric: `scry.cache.{hits,misses}_total{server}`. Tests: TTL expiry, mutation bypass, max-entries LRU eviction, hit + miss metrics, audit chain contains cached entries.",
+      "priority": "high",
+      "estimate": "10h",
+      "depends_on": [
+        "v03-anchor-sidecar"
+      ],
+      "feature_id": "query-result-cache",
+      "source": {}
+    },
+    {
+      "id": "v04-persisted-queries",
+      "title": "Persisted query storage + CLI + tool integration",
+      "description": "1) internal/pq package: per-server hash→query Store backed by SQLite (reuse schema.Store DB; add `pq` table). Get(hash), Put(name, query), Delete(hashOrName), List(). 2) cmd/scry/pq.go: subcommand wiring `scry pq add/list/remove \u003cserver\u003e`. 3) internal/server/query_tools.go: ExecuteInput gains `Hash` string; mutually exclusive with `Query`. On hash: pq.Get → forward as query. Audit chain records both hash + query_hash (so external auditors can correlate). 4) Tests: roundtrip via CLI, hash lookup in execute, missing hash returns pq_not_found envelope, conflict (both args) rejected.",
+      "priority": "high",
+      "estimate": "12h",
+      "depends_on": [
+        "v04-cache-metrics"
+      ],
+      "feature_id": "persisted-queries",
       "source": {}
     },
     {
@@ -73,129 +348,6 @@
       "source": {}
     },
     {
-      "id": "v02-changelog-and-release",
-      "title": "CHANGELOG sweep + tag v0.2.0",
-      "description": "Move every v0.2 commit from CHANGELOG.md `Unreleased` into a `## 0.2.0 - YYYY-MM-DD` section grouped by Added/Changed/Fixed/Security. Update README badges if version-pinned. Confirm `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.2.0 + push. Release workflow publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, the brew formula bump fires too.",
-      "priority": "high",
-      "estimate": "2h",
-      "depends_on": [
-        "v02-custom-auth-headers",
-        "v02-per-server-rate-limit",
-        "v02-keychain-token-ref",
-        "v02-audit-rotation",
-        "v02-race-stress",
-        "v02-scry-doctor",
-        "v02-deployment-guide",
-        "v02-tool-filter-upstream"
-      ],
-      "feature_id": "core-foundation",
-      "source": {}
-    },
-    {
-      "id": "v03-schema-diff-alerts",
-      "title": "Schema diff alerts + schema_diff MCP tool",
-      "description": "internal/schema/diff.go: compare two *Schema instances, return added/removed/changed type names with a kind flag (additive vs breaking). runtime.refreshEntry calls Diff() against the previous SDL, persists last-N diffs in meta, emits log + metric `scry.schema.changes_total{kind}`. New MCP tool schema_diff(server, limit) returns the last N diffs. Tests: identical schemas → empty diff; added field → additive; removed field → breaking; changed required arg → breaking.",
-      "priority": "medium",
-      "estimate": "10h",
-      "depends_on": [
-        "v03-audit-otel-logs"
-      ],
-      "feature_id": "schema-diff-alerts",
-      "source": {}
-    },
-    {
-      "id": "v04-cache-metrics",
-      "title": "Wire cache hit/miss counters into query_execute",
-      "description": "Add ScryMeters.CacheHits + ScryMeters.CacheMisses Int64Counter, dimensioned by server label. Increment from query_execute right after cache.Get returns hit/miss (only for effect=read; mutations don't touch cache). Test: hit/miss recorded with correct outcome + server attribute. Update README observability section to list the new metrics.",
-      "priority": "high",
-      "estimate": "3h",
-      "depends_on": null,
-      "feature_id": "cache-metrics",
-      "source": {}
-    },
-    {
-      "id": "v02-keychain-token-ref",
-      "title": "keychain:// token-ref via 99designs/keyring",
-      "description": "Add ResolveToken case for keychain://service.account refs. Use 99designs/keyring (cross-platform: macOS Keychain, libsecret, Windows DPAPI). On keyring-unavailable error: return clear hint pointing operator to file:// fallback. Tests: parse keychain:// ref, mock keyring backend with table-driven cases, headless fallback path emits actionable error.",
-      "priority": "medium",
-      "estimate": "8h",
-      "depends_on": null,
-      "feature_id": "keychain-token-ref",
-      "source": {}
-    },
-    {
-      "id": "v02-tool-filter-upstream",
-      "title": "Adopt mcp-go ToolFilter once #90 ships (or upstream the PR)",
-      "description": "Check status of mcp-go #90 weekly through v0.2 cycle. If merged + released: bump dep, swap internal/server/tool_filter.go for the upstream-provided `mcp.ToolFilter(predicate) Middleware`, delete the wrapper. If still open at v0.2 freeze: open a PR against mcp-go ourselves with the internal/server/tool_filter.go implementation refactored to use typed handler internals. Acceptance: scry doesn't ship its own tool-list filter middleware by v0.2.0.",
-      "priority": "low",
-      "estimate": "3h",
-      "depends_on": null,
-      "feature_id": "tool-filter-upstream",
-      "source": {}
-    },
-    {
-      "id": "v03-query-result-cache",
-      "title": "TTL query result cache",
-      "description": "internal/cache package with TTL-bounded Get/Set per upstream entry. Key = SHA-256(query|variables|operationName). Wired into query_execute: bypass for effect=write, otherwise check cache before upstream call. On hit: recordOutcome(\"ok_cached\", ...), gate.Record with outcome=ok_cached so chain stays accurate, return cached body. On miss: run upstream + Set on success. Operator knobs: --cache-ttl (default 30s, 0 disables), --cache-max-entries (default 1000). Metric: `scry.cache.{hits,misses}_total{server}`. Tests: TTL expiry, mutation bypass, max-entries LRU eviction, hit + miss metrics, audit chain contains cached entries.",
-      "priority": "high",
-      "estimate": "10h",
-      "depends_on": [
-        "v03-anchor-sidecar"
-      ],
-      "feature_id": "query-result-cache",
-      "source": {}
-    },
-    {
-      "id": "v03-audit-otel-logs",
-      "title": "Emit each Evidence record as an OTel log",
-      "description": "internal/obs/audit.go: thin wrapper that converts an Evidence record to an OTel LogRecord (timestamp, body=summary, attrs={server, effect, complexity, outcome, query_hash, response_hash, chain_hash, session}). Init in cmd/scry/main.go alongside tracer + meter; honour OTEL_LOGS_EXPORTER (none|otlp|stdout). Gate.Record gains a single Emit() call after the existing append path so JSONL stays the durable local copy. Tests: stdout exporter renders each record; no-op provider absorbs silently; redaction — no raw query/response bodies in attrs (hashes only).",
-      "priority": "high",
-      "estimate": "6h",
-      "depends_on": null,
-      "feature_id": "audit-otel-logs",
-      "source": {}
-    },
-    {
-      "id": "v04-federation-aware",
-      "title": "Detect Apollo federated upstreams + tag subgraphs in search",
-      "description": "1) schema.IntrospectFederation(): probe `{ _service { sdl } }` after the normal introspection; on success, parse the returned SDL with @key/@external directive awareness. 2) schema.SearchUnit gains a Subgraph string field. 3) runtime.refreshEntry calls federation probe; populates Subgraph on each unit when present. 4) renderSearchResults shows subgraph in markdown table. 5) Test: stub upstream returning federated SDL → units carry subgraph; non-federated upstream → Subgraph empty (no regression).",
-      "priority": "medium",
-      "estimate": "10h",
-      "depends_on": [
-        "v04-cache-metrics"
-      ],
-      "feature_id": "federation-aware",
-      "source": {}
-    },
-    {
-      "id": "v04-mtls-identity",
-      "title": "mTLS subject CN → MCP Identity middleware",
-      "description": "1) internal/server/mtls_identity.go: HTTP middleware that reads req.TLS.PeerCertificates[0]. If non-empty: build Identity{ID: subjectCN, Name: subjectCN}, store via mcp.ContextWithIdentity. 2) buildServeOpts wires this middleware BEFORE BearerAuth so mTLS identity takes precedence when both are presented. 3) Tests: synthesised request with PeerCertificates → identity in context matches CN; no cert → middleware no-ops, BearerAuth proceeds; both cert + bearer → cert wins.",
-      "priority": "medium",
-      "estimate": "8h",
-      "depends_on": [
-        "v04-cache-metrics"
-      ],
-      "feature_id": "mtls-identity",
-      "source": {}
-    },
-    {
-      "id": "v04-changelog-and-release",
-      "title": "CHANGELOG sweep + tag v0.4.0",
-      "description": "Move v0.4 work from Unreleased into dated section. Added/Changed groups. README badge updates if version-pinned. `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...` clean. Tag v0.4.0 + push. Release workflow auto-publishes via goreleaser.",
-      "priority": "high",
-      "estimate": "2h",
-      "depends_on": [
-        "v04-cache-metrics",
-        "v04-fuzz-tests",
-        "v04-federation-aware",
-        "v04-persisted-queries",
-        "v04-mtls-identity"
-      ],
-      "feature_id": "core-foundation",
-      "source": {}
-    },
-    {
       "id": "v02-scry-doctor",
       "title": "scry doctor diagnostic CLI",
       "description": "New subcommand `scry doctor`. Probes per server: upstream reachability (HEAD or empty POST), introspection mode (cached meta), auth status (reuses StatusAll), audit-dir perms (0700 + per-file 0600), OTel exporter connectivity when OTEL_TRACES_EXPORTER set, scope sanity check (clients.yml validates). One-line verdict per check, color-coded console. Exit code = sum of failed checks. Tests: each probe has its own unit test against a stub state; integration test runs `doctor` against a healthy fixture and asserts exit 0 + against a broken fixture and asserts non-zero.",
@@ -208,64 +360,6 @@
       "source": {}
     },
     {
-      "id": "v04-fuzz-tests",
-      "title": "Fuzz harness for ParseSDL, gate.Classify, cache.Key",
-      "description": "Three FuzzXxx funcs in their respective packages: FuzzParseSDL (random bytes → ParseSDL must not panic), FuzzClassify (random strings → Classify always returns one of three Effects), FuzzCacheKey (random inputs → Key is deterministic + collision-free for distinct inputs). Build-tagged via go test -fuzz pattern. Nightly CI workflow (.github/workflows/fuzz.yml) runs each for 5min. Crashers go into testdata/fuzz/\u003cfunc\u003e/.",
-      "priority": "medium",
-      "estimate": "5h",
-      "depends_on": null,
-      "feature_id": "fuzz-tests",
-      "source": {}
-    },
-    {
-      "id": "v02-audit-rotation",
-      "title": "Audit JSONL size-based rotation with chain continuity",
-      "description": "Add --audit-max-size (50MiB default) + --audit-keep (5 default). On rollover: rename \u003csession\u003e.jsonl→\u003csession\u003e.jsonl.1, shift older suffixes, open new .jsonl. Critical: chain hash continuity across files — first record of new file uses last record's ChainHash of .jsonl.1 as prev. VerifyChain must verify across the whole sequence. Tests: rollover triggers at threshold, chain verifies end-to-end across 5+ rotations, keep-N truncates oldest.",
-      "priority": "high",
-      "estimate": "10h",
-      "depends_on": null,
-      "feature_id": "audit-rotation",
-      "source": {}
-    },
-    {
-      "id": "v03-changelog-and-release",
-      "title": "CHANGELOG sweep + tag v0.3.0",
-      "description": "Promote Unreleased into ## 0.3.0 section. Add/Changed/Fixed groups. README badge updates if version-pinned. Final `make verify \u0026\u0026 go test -tags=live,stdio_smoke ./...`. Tag v0.3.0 + push. Release workflow auto-publishes; if HOMEBREW_TAP_TOKEN now in repo secrets, brew formula bumps too.",
-      "priority": "high",
-      "estimate": "2h",
-      "depends_on": [
-        "v03-anchor-sidecar",
-        "v03-audit-otel-logs",
-        "v03-tool-filter-adopt",
-        "v03-schema-diff-alerts",
-        "v03-query-result-cache"
-      ],
-      "feature_id": "core-foundation",
-      "source": {}
-    },
-    {
-      "id": "v02-per-server-rate-limit",
-      "title": "Wire fortify rate limiter per server",
-      "description": "Add rate_limit.rps + rate_limit.burst to servers.yml. Layer fortify's rate-limit middleware onto upstream.Client.http chain. On reject, surface structured rate_limited envelope with retry_after. Tests: under-limit passes, over-limit rejects with correct envelope, per-server isolation (one upstream throttled doesn't affect another).",
-      "priority": "high",
-      "estimate": "5h",
-      "depends_on": null,
-      "feature_id": "per-server-rate-limit",
-      "source": {}
-    },
-    {
-      "id": "v04-persisted-queries",
-      "title": "Persisted query storage + CLI + tool integration",
-      "description": "1) internal/pq package: per-server hash→query Store backed by SQLite (reuse schema.Store DB; add `pq` table). Get(hash), Put(name, query), Delete(hashOrName), List(). 2) cmd/scry/pq.go: subcommand wiring `scry pq add/list/remove \u003cserver\u003e`. 3) internal/server/query_tools.go: ExecuteInput gains `Hash` string; mutually exclusive with `Query`. On hash: pq.Get → forward as query. Audit chain records both hash + query_hash (so external auditors can correlate). 4) Tests: roundtrip via CLI, hash lookup in execute, missing hash returns pq_not_found envelope, conflict (both args) rejected.",
-      "priority": "high",
-      "estimate": "12h",
-      "depends_on": [
-        "v04-cache-metrics"
-      ],
-      "feature_id": "persisted-queries",
-      "source": {}
-    },
-    {
       "id": "v02-custom-auth-headers",
       "title": "Custom auth header + scheme per server",
       "description": "Add auth.header_name + auth.scheme to auth.Server (servers.yml) + Client (clients.yml). Thread through upstream.Client.SetAuth so hot reload swaps without restart. Empty scheme = no prefix. Tests: bearer (default), X-API-Key (no scheme), Token \u003cT\u003e (custom scheme), refresh-on-reload.",
@@ -274,32 +368,9 @@
       "depends_on": null,
       "feature_id": "custom-auth-headers",
       "source": {}
-    },
-    {
-      "id": "v02-race-stress",
-      "title": "Race-stress harness for hot-reload + Gate concurrency",
-      "description": "Build-tagged (`stress`) test under internal/server/. Spawn N concurrent goroutines: half issuing query_execute against fakeUpstream, quarter rewriting servers.yml to trigger Replace(), quarter calling g.Record on shared session. Run for 30s; -race must report 0 races + 0 fatals. CI workflow: nightly job (cron) that runs the stress tag; not blocking on PR.",
-      "priority": "high",
-      "estimate": "8h",
-      "depends_on": [
-        "v02-audit-rotation",
-        "v02-custom-auth-headers"
-      ],
-      "feature_id": "race-stress",
-      "source": {}
-    },
-    {
-      "id": "v03-anchor-sidecar",
-      "title": "Audit chain anchor sidecar closes truncation gap",
-      "description": "Write \u003csession\u003e.anchor next to the JSONL files holding the ChainHash of the oldest-still-retained record. On rotation truncation, refresh the anchor to point at the new oldest record. On load, read the anchor and use it as the initial prev-hash so VerifyChain succeeds end-to-end even after archives drop. Tests: keep=3 truncate-then-verify case from v0.2's TestAuditRotationKeepTruncatesAndDocumentsBoundary now passes cleanly; anchor file 0600 perms; missing anchor falls back to current behaviour (genesis prev=\"\").",
-      "priority": "high",
-      "estimate": "8h",
-      "depends_on": null,
-      "feature_id": "anchor-sidecar",
-      "source": {}
     }
   ],
   "approval_status": "approved",
   "created_at": "2026-05-18T07:10:11.363203+02:00",
-  "updated_at": "2026-05-18T21:35:19.359286+02:00"
+  "updated_at": "2026-05-19T09:02:29.609183+02:00"
 }

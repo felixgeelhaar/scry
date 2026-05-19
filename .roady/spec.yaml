@@ -1,44 +1,55 @@
 id: scry
 title: scry
 description: |
-  Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;
-  v0.2 hardened deployment; v0.3 closed the audit + caching loop;
-  v0.4 sharpened the dedupe / discoverability stories.
-  v0.5 hardens the wedge: lifts server-package coverage from 33%
-  and closes mutation testing gaps surfaced after v0.4's Pokémon
-  live smoke (read-only).
-features:
-  - id: server-coverage
-    title: server package handler coverage uplift
-    description: |
-      internal/server is the lowest-coverage package at 33%. Handler
-      paths through query_execute (envelope shapes for invalid_query,
-      cost_exceeded, budget_exceeded, unknown_server, auth_expired,
-      upstream_error, permission_denied, rate_limited, pq_conflict,
-      pq_not_found, ok_cached, ok), schema_search variants, and
-      gate guards are mostly tested via smoke OR not at all. v0.5
-      target: 60%+ via direct handler unit tests that drive the
-      registered MCP tools through their internal closures, using
-      fakes for runtime.Entry + upstream.Client where needed.
-    requirements: []
+  Searchable GraphQL ↔ MCP bridge for AI agents.
 
-  - id: mutation-coverage
-    title: End-to-end mutation testing
+  v0.1 shipped core; v0.2 hardened deployment; v0.3 closed the audit
+  + caching loop; v0.4 sharpened dedupe / discoverability; v0.5
+  hardened the wedge (server coverage 33% → 63.8%, mutation E2E).
+
+  v0.6 proves the wedge externally. All five expert lenses
+  (ai/product/gtm/ux/architecture) converge on one blocker: zero
+  external users. The product is technically credible but
+  unvalidated against a real-world schema. v0.6 ships a
+  reproducible benchmark on GitHub's v4 GraphQL API (~700 types,
+  public, every reader can repro with a PAT). Measures token
+  compression, agent task success rate, latency, $$/task — full-
+  SDL baseline vs. scry-routed agent. The repo becomes self-
+  marketing: README screenshot IS the distribution asset.
+features:
+  - id: github-v4-benchmark
+    title: reproducible benchmark on GitHub v4 schema
     description: |
-      v0.1–v0.4 unit-tested gate.Classify("mutation") and write
-      budget exhaustion, but no test exercises query_execute with
-      a mutation against a real GraphQL backend — validate → cost
-      → gate write budget → upstream POST → audit record
-      outcome=ok effect=write. Pokémon GraphQL is read-only, SWAPI
-      too, so a live mutation smoke needs either a local docker
-      upstream or an in-process httptest fake. v0.5 ships:
-        - httptest-backed mutation integration in
-          internal/server/mutation_test.go (deterministic, fast)
-        - documents the lack of a stable public mutation endpoint
-          so future contributors don't reinvent the search
-        - asserts: cache bypass on mutation, write counter
-          increments only on outcome=ok, chain Evidence carries
-          effect=write
+      Ship docs/benchmarks/github-v4/ with everything needed to
+      reproduce two head-to-head agent task runs.
+
+      Task picked for realism (multi-field, joins, requires
+      picking ~5 types out of 700): "find every PR I opened that
+      touched file X in the last month, with reviewer + merge
+      status." Encodes the schema-navigation cost the wedge is
+      meant to compress.
+
+      Two runners:
+        - baseline/: paste full GitHub SDL into the agent's
+          system prompt, run the task N=10 times.
+        - scry/: agent calls schema_search → query_validate →
+          query_execute, run the task N=10 times.
+
+      Metrics captured per trial: input tokens, output tokens,
+      wall-clock time, success (boolean — did the agent return
+      the right answer), $$ cost via published per-million-token
+      rates. Raw results in results.jsonl; summary table in
+      README.md.
+
+      Single `make bench` reproduces both runs from a clean
+      checkout given GITHUB_TOKEN + ANTHROPIC_API_KEY env vars.
+
+      Acceptance: baseline success rate measured; scry success
+      rate measured; token compression measured against the
+      "~50× reduction" claim in README.md. Numbers either confirm
+      the wedge (→ ship the HN/Apollo Slack drop) or refute it
+      (→ v0.7 plan grounded in observed failure modes, not
+      speculation).
     requirements: []
 constraints: []
-version: 0.5.0
+version: 0.6.0

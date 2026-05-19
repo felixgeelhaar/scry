@@ -1,23 +1,16 @@
 {
   "id": "scry",
   "title": "scry",
-  "description": "Searchable GraphQL ↔ MCP bridge for AI agents. v0.1 shipped core;\nv0.2 hardened deployment; v0.3 closed the audit + caching loop;\nv0.4 sharpened the dedupe / discoverability stories.\nv0.5 hardens the wedge: lifts server-package coverage from 33%\nand closes mutation testing gaps surfaced after v0.4's Pokémon\nlive smoke (read-only).\n",
+  "description": "Searchable GraphQL ↔ MCP bridge for AI agents.\n\nv0.1 shipped core; v0.2 hardened deployment; v0.3 closed the audit\n+ caching loop; v0.4 sharpened dedupe / discoverability; v0.5\nhardened the wedge (server coverage 33% → 63.8%, mutation E2E).\n\nv0.6 proves the wedge externally. All five expert lenses\n(ai/product/gtm/ux/architecture) converge on one blocker: zero\nexternal users. The product is technically credible but\nunvalidated against a real-world schema. v0.6 ships a\nreproducible benchmark on GitHub's v4 GraphQL API (~700 types,\npublic, every reader can repro with a PAT). Measures token\ncompression, agent task success rate, latency, $$/task — full-\nSDL baseline vs. scry-routed agent. The repo becomes self-\nmarketing: README screenshot IS the distribution asset.\n",
   "features": [
     {
-      "id": "server-coverage",
-      "title": "server package handler coverage uplift",
-      "description": "internal/server is the lowest-coverage package at 33%. Handler\npaths through query_execute (envelope shapes for invalid_query,\ncost_exceeded, budget_exceeded, unknown_server, auth_expired,\nupstream_error, permission_denied, rate_limited, pq_conflict,\npq_not_found, ok_cached, ok), schema_search variants, and\ngate guards are mostly tested via smoke OR not at all. v0.5\ntarget: 60%+ via direct handler unit tests that drive the\nregistered MCP tools through their internal closures, using\nfakes for runtime.Entry + upstream.Client where needed.\n",
-      "requirements": [],
-      "source": {}
-    },
-    {
-      "id": "mutation-coverage",
-      "title": "End-to-end mutation testing",
-      "description": "v0.1–v0.4 unit-tested gate.Classify(\"mutation\") and write\nbudget exhaustion, but no test exercises query_execute with\na mutation against a real GraphQL backend — validate → cost\n→ gate write budget → upstream POST → audit record\noutcome=ok effect=write. Pokémon GraphQL is read-only, SWAPI\ntoo, so a live mutation smoke needs either a local docker\nupstream or an in-process httptest fake. v0.5 ships:\n  - httptest-backed mutation integration in\n    internal/server/mutation_test.go (deterministic, fast)\n  - documents the lack of a stable public mutation endpoint\n    so future contributors don't reinvent the search\n  - asserts: cache bypass on mutation, write counter\n    increments only on outcome=ok, chain Evidence carries\n    effect=write\n",
+      "id": "github-v4-benchmark",
+      "title": "reproducible benchmark on GitHub v4 schema",
+      "description": "Ship docs/benchmarks/github-v4/ with everything needed to\nreproduce two head-to-head agent task runs.\n\nTask picked for realism (multi-field, joins, requires\npicking ~5 types out of 700): \"find every PR I opened that\ntouched file X in the last month, with reviewer + merge\nstatus.\" Encodes the schema-navigation cost the wedge is\nmeant to compress.\n\nTwo runners:\n  - baseline/: paste full GitHub SDL into the agent's\n    system prompt, run the task N=10 times.\n  - scry/: agent calls schema_search → query_validate →\n    query_execute, run the task N=10 times.\n\nMetrics captured per trial: input tokens, output tokens,\nwall-clock time, success (boolean — did the agent return\nthe right answer), $$ cost via published per-million-token\nrates. Raw results in results.jsonl; summary table in\nREADME.md.\n\nSingle `make bench` reproduces both runs from a clean\ncheckout given GITHUB_TOKEN + ANTHROPIC_API_KEY env vars.\n\nAcceptance: baseline success rate measured; scry success\nrate measured; token compression measured against the\n\"~50× reduction\" claim in README.md. Numbers either confirm\nthe wedge (→ ship the HN/Apollo Slack drop) or refute it\n(→ v0.7 plan grounded in observed failure modes, not\nspeculation).\n",
       "requirements": [],
       "source": {}
     }
   ],
   "constraints": [],
-  "version": "0.5.0"
+  "version": "0.6.0"
 }

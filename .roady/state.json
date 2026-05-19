@@ -1,6 +1,6 @@
 {
   "project_id": "scry",
-  "version": 51,
+  "version": 60,
   "task_states": {
     "v02-audit-rotation": {
       "status": "done",
@@ -234,27 +234,81 @@
       "elapsed_minutes": 6
     },
     "v05-changelog-and-release": {
-      "status": "pending",
+      "status": "done",
       "path": "",
-      "elapsed_minutes": 0
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 1f856cd + tag v0.5.0 pushed to origin; goreleaser workflow will produce artifacts"
+      ],
+      "started_at": "2026-05-18T21:48:29.374896+02:00",
+      "completed_at": "2026-05-18T21:49:50.012935+02:00",
+      "elapsed_minutes": 1
     },
     "v05-mutation-end-to-end": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 3ee31b9 — 4 tests covering cache bypass, write counter, chain effect=write, rejected-mutation no-op"
+      ],
+      "started_at": "2026-05-18T21:45:48.193909+02:00",
+      "completed_at": "2026-05-18T21:48:23.458587+02:00",
+      "elapsed_minutes": 2
+    },
+    "v05-server-query-execute-coverage": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit 162166c — server coverage 33% → 50.4%"
+      ],
+      "started_at": "2026-05-18T21:35:46.949239+02:00",
+      "completed_at": "2026-05-18T21:40:37.603676+02:00",
+      "elapsed_minutes": 4
+    },
+    "v05-server-schema-tools-coverage": {
+      "status": "done",
+      "path": "",
+      "owner": "ai-agent",
+      "evidence": [
+        "commit dc05622 — server coverage 50.4% -\u003e 63.8% (clears 60% target)"
+      ],
+      "started_at": "2026-05-18T21:40:49.602696+02:00",
+      "completed_at": "2026-05-18T21:45:42.362825+02:00",
+      "elapsed_minutes": 4
+    },
+    "v06-bench-baseline-runner": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     },
-    "v05-server-query-execute-coverage": {
+    "v06-bench-metrics-harness": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v06-bench-results-doc": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v06-bench-scaffold": {
       "status": "in_progress",
       "path": "",
       "owner": "ai-agent",
-      "started_at": "2026-05-18T21:35:46.949239+02:00",
+      "started_at": "2026-05-19T09:06:08.538022+02:00",
       "elapsed_minutes": 0
     },
-    "v05-server-schema-tools-coverage": {
+    "v06-bench-scry-runner": {
+      "status": "pending",
+      "path": "",
+      "elapsed_minutes": 0
+    },
+    "v06-bench-task-script": {
       "status": "pending",
       "path": "",
       "elapsed_minutes": 0
     }
   },
-  "updated_at": "2026-05-18T21:35:46.949239+02:00"
+  "updated_at": "2026-05-19T09:06:08.538022+02:00"
 }
