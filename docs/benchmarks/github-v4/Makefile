@@ -31,9 +31,14 @@ bench-baseline:
 	@echo ">> baseline: full-SDL in system prompt × $(TRIALS) trials"
 	$(GO) run ./baseline -model $(MODEL) -trials $(TRIALS) -out results/baseline.jsonl
 
-bench-scry:
+bench-scry: build-scry
 	@echo ">> scry: schema_search → query_validate → query_execute × $(TRIALS) trials"
-	$(GO) run ./scry -model $(MODEL) -trials $(TRIALS) -out results/scry.jsonl
+	$(GO) run ./scry -model $(MODEL) -trials $(TRIALS) -out results/scry.jsonl -scry-bin $(CURDIR)/bin/scry
+
+build-scry:
+	@mkdir -p bin
+	@echo ">> building scry binary"
+	cd ../../.. && $(GO) build -o $(CURDIR)/bin/scry ./cmd/scry
 
 bench-summary:
 	@echo ">> aggregating results"
@@ -45,3 +50,4 @@ bench-fixtures:
 
 bench-clean:
 	rm -f results/*.jsonl results/summary.md results/summary.json
+	rm -rf bin/
