@@ -6,9 +6,9 @@ name: Fuzz
 # would dominate the inner loop.
 on:
   schedule:
-    # 03:00 UTC: after the stress workflow finishes, before
-    # the EU/US working day.
-    - cron: "0 3 * * *"
+    # Weekly Sun 03:00 UTC. Daily cron retired — fuzz time too expensive
+    # for daily Actions minutes; workflow_dispatch available for ad-hoc.
+    - cron: "0 3 * * 0"
   workflow_dispatch:
     inputs:
       fuzztime:

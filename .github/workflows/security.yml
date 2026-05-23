@@ -11,7 +11,8 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    - cron: "0 6 * * *"
+    # Weekly Mon 06:00 UTC. Daily cron retired — push/PR already trigger.
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read

@@ -7,8 +7,8 @@ name: Stress
 
 on:
   schedule:
-    # 02:00 UTC: quiet window before the EU/US working day.
-    - cron: "0 2 * * *"
+    # Weekly Sun 02:00 UTC. Daily cron retired — workflow_dispatch for ad-hoc.
+    - cron: "0 2 * * 0"
   workflow_dispatch:
     inputs:
       duration:
