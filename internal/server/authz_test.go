@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
-	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
+	mcp "go.klarlabs.de/mcp"
+	mcpmw "go.klarlabs.de/mcp/middleware"
 )
 
 func TestRequireAdminAllowsLocalCaller(t *testing.T) {

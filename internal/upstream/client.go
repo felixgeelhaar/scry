@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/felixgeelhaar/fortify/middleware"
-	"github.com/felixgeelhaar/fortify/ratelimit"
+	"go.klarlabs.de/fortify/middleware"
+	"go.klarlabs.de/fortify/ratelimit"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"

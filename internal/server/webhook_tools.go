@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/url"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )

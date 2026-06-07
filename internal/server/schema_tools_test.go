@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 	"github.com/felixgeelhaar/scry/internal/schema"

@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
-	"github.com/felixgeelhaar/mcp-go/protocol"
+	mcpmw "go.klarlabs.de/mcp/middleware"
+	"go.klarlabs.de/mcp/protocol"
 )
 
 // toolListFilter is the middleware that strips tools the caller's

@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/gate"
 	"github.com/felixgeelhaar/scry/internal/runtime"

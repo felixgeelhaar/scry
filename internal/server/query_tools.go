@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 

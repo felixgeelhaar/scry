@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )

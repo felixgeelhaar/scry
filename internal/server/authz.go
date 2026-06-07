@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
+	mcp "go.klarlabs.de/mcp"
 )
 
 // requireAdmin returns "" when the caller may invoke a destructive

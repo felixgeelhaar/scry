@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/bolt"
+	"go.klarlabs.de/bolt"
 
 	"github.com/felixgeelhaar/scry/internal/obs"
 )

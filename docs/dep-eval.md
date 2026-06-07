@@ -6,10 +6,10 @@ scry would otherwise hand-roll.
 
 | Library | Carries | Used for |
 |---|---|---|
-| `felixgeelhaar/mcp-go` | MCP server framework (Gin-style) | `schema_search` + 4 sibling tools |
+| `go.klarlabs.de/mcp` | MCP server framework (Gin-style) | `schema_search` + 4 sibling tools |
 | `felixgeelhaar/axi-go` | Domain-driven tool kernel (safety + audit + budgets) | `query_execute` gating |
-| `felixgeelhaar/bolt`   | Zero-alloc `slog.Handler` with OTEL | All logging |
-| `felixgeelhaar/fortify`| Resilience patterns (CB, retry, timeout, rate limit, hedge) | Upstream GraphQL HTTP client |
+| `go.klarlabs.de/bolt`   | Zero-alloc `slog.Handler` with OTEL | All logging |
+| `go.klarlabs.de/fortify`| Resilience patterns (CB, retry, timeout, rate limit, hedge) | Upstream GraphQL HTTP client |
 
 ## mcp-go
 

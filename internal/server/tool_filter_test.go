@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	mcp "github.com/felixgeelhaar/mcp-go"
-	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
-	"github.com/felixgeelhaar/mcp-go/protocol"
+	mcp "go.klarlabs.de/mcp"
+	mcpmw "go.klarlabs.de/mcp/middleware"
+	"go.klarlabs.de/mcp/protocol"
 
 	"github.com/felixgeelhaar/scry/internal/auth"
 )

@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/felixgeelhaar/bolt"
+	"go.klarlabs.de/bolt"
 
 	"github.com/felixgeelhaar/scry/internal/auth"
 	"github.com/felixgeelhaar/scry/internal/obs"

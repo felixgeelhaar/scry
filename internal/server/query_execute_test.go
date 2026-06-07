@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/felixgeelhaar/bolt"
-	mcp "github.com/felixgeelhaar/mcp-go"
-	mcpmw "github.com/felixgeelhaar/mcp-go/middleware"
+	"go.klarlabs.de/bolt"
+	mcp "go.klarlabs.de/mcp"
+	mcpmw "go.klarlabs.de/mcp/middleware"
 
 	"github.com/felixgeelhaar/scry/internal/gate"
 	"github.com/felixgeelhaar/scry/internal/obs"

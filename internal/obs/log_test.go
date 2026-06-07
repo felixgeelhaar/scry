@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/felixgeelhaar/bolt"
+	"go.klarlabs.de/bolt"
 )
 
 func TestRedactTokenRefHidesLiterals(t *testing.T) {

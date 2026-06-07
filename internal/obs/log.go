@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/felixgeelhaar/bolt"
+	"go.klarlabs.de/bolt"
 )
 
 var (
