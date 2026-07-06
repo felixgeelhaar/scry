@@ -16,6 +16,7 @@ import (
 	"time"
 
 	mcp "go.klarlabs.de/mcp"
+	"go.klarlabs.de/mcp/transport"
 
 	"github.com/felixgeelhaar/scry/internal/auth"
 	"github.com/felixgeelhaar/scry/internal/gate"
@@ -380,57 +381,68 @@ var scopeRegistry map[string]*auth.Scope
 // scopeFor returns the clients.yml-derived scope for the active
 // caller, or nil when the caller isn't in clients.yml (legacy
 // --serve-auth caller, stdio, or unauthenticated). Lookup is by
-// Identity.ID — BearerAuth stores the token as the ID value.
+// Identity.ID, which identityContextFn sets to the resolved token for
+// clients.yml callers — the same key scopeRegistry is built under.
 func scopeFor(ctx context.Context) *auth.Scope {
 	if scopeRegistry == nil {
 		return nil
 	}
-	id := mcp.IdentityFromContext(ctx)
+	id := identityFromContext(ctx)
 	if id == nil {
 		return nil
 	}
 	return scopeRegistry[id.ID]
 }
 
-// buildServeOpts wraps the Bearer auth middleware when at least one
-// serve token is configured. Both --serve-auth (admin) and
-// --serve-auth-readonly (read-only) are accepted concurrently;
-// callers presenting the admin token get the "scry-admin" identity,
-// callers presenting the read-only token get "scry-readonly".
+// buildServeOpts assembles the shared middleware stack and the
+// token→identity map every transport needs. Both --serve-auth (admin)
+// and --serve-auth-readonly (read-only) are accepted concurrently;
+// callers presenting the admin token get the identityAdmin identity,
+// callers presenting the read-only token get identityReadOnly.
 //
-// Uses mcp-go v1.12's BearerAuth shorthand which handles the
-// StaticTokens + Authenticator + Auth wrap + handshake-skip-methods
-// automatically.
-func buildServeOpts(cfg Config) ([]mcp.ServeOption, error) {
+// mcp-go v1.19 removed its in-library BearerAuth; scry now owns bearer
+// authentication. buildServeOpts returns the resolved token→identity
+// map so the HTTP transport can derive identity from the Authorization
+// header via identityContextFn (transport.WithRequestContextFn), and
+// installs bearerGate — scry's replacement for BearerAuth's
+// authentication step — plus the OTel span middleware and the
+// tool-list scope filter.
+//
+// The returned map is nil/empty when no serve credential is
+// configured, in which case bearerGate is omitted and every caller is
+// treated as a trusted local operator.
+func buildServeOpts(cfg Config) (map[string]*Identity, []mcp.ServeOption, error) {
 	var opts []mcp.ServeOption
-	tokens := map[string]string{}
+	identities := map[string]*Identity{}
 	scopeRegistry = nil // reset on each boot (test isolation)
 
 	// clients.yml takes precedence — adds tokens with their
-	// friendly names + per-token scopes.
+	// friendly names + per-token scopes. Identity.ID is the resolved
+	// token so scopeFor can look the caller's scope up in
+	// scopeRegistry (keyed by the same token).
 	clientsPath, err := auth.DefaultClientsPath()
 	if err == nil {
 		clients, lerr := auth.LoadClients(clientsPath)
 		if lerr != nil {
-			return nil, fmt.Errorf("load clients.yml: %w", lerr)
+			return nil, nil, fmt.Errorf("load clients.yml: %w", lerr)
 		}
 		if len(clients.Clients) > 0 {
 			if err := clients.Validate(); err != nil {
-				return nil, fmt.Errorf("clients.yml: %w", err)
+				return nil, nil, fmt.Errorf("clients.yml: %w", err)
 			}
 			scopeRegistry = map[string]*auth.Scope{}
 			for _, cl := range clients.Clients {
 				tok, err := auth.ResolveToken(cl.Token)
 				if err != nil {
-					return nil, fmt.Errorf("clients.yml %q: %w", cl.Name, err)
+					return nil, nil, fmt.Errorf("clients.yml %q: %w", cl.Name, err)
 				}
-				if _, dup := tokens[tok]; dup {
-					return nil, fmt.Errorf("clients.yml %q: token collides with another registered token", cl.Name)
+				if _, dup := identities[tok]; dup {
+					return nil, nil, fmt.Errorf("clients.yml %q: token collides with another registered token", cl.Name)
 				}
-				tokens[tok] = cl.Name
+				identities[tok] = &Identity{ID: tok, Name: cl.Name}
 				scope, err := cl.BuildScope(nil)
 				if err != nil {
-					return nil, fmt.Errorf("clients.yml: %w", err)
+					return nil, nil, fmt.Errorf("clients.yml: %w", err)
 				}
 				scopeRegistry[tok] = &scope
 			}
@@ -445,26 +457,28 @@ func buildServeOpts(cfg Config) ([]mcp.ServeOption, error) {
 	if cfg.ServeAuthToken != "" {
 		tok, err := auth.ResolveToken(cfg.ServeAuthToken)
 		if err != nil {
-			return nil, fmt.Errorf("resolve serve-auth: %w", err)
+			return nil, nil, fmt.Errorf("resolve serve-auth: %w", err)
 		}
-		if _, dup := tokens[tok]; dup {
-			return nil, errors.New("--serve-auth resolved to a token already used by clients.yml")
+		if _, dup := identities[tok]; dup {
+			return nil, nil, errors.New("--serve-auth resolved to a token already used by clients.yml")
 		}
-		tokens[tok] = identityAdmin
+		// --serve-auth callers carry no clients.yml scope; ID == Name
+		// == identityAdmin so requireAdmin allows them.
+		identities[tok] = &Identity{ID: identityAdmin, Name: identityAdmin}
 	}
 	if cfg.ServeAuthTokenReadOnly != "" {
 		tok, err := auth.ResolveToken(cfg.ServeAuthTokenReadOnly)
 		if err != nil {
-			return nil, fmt.Errorf("resolve serve-auth-readonly: %w", err)
+			return nil, nil, fmt.Errorf("resolve serve-auth-readonly: %w", err)
 		}
 		// Refuse to silently overwrite an admin token entry if
 		// operators paste the same value in both flags — without
 		// this check, the higher privilege would silently win and
 		// the read-only label would be dropped.
-		if _, dup := tokens[tok]; dup {
-			return nil, errors.New("--serve-auth and --serve-auth-readonly resolved to the same token; use distinct credentials")
+		if _, dup := identities[tok]; dup {
+			return nil, nil, errors.New("--serve-auth and --serve-auth-readonly resolved to the same token; use distinct credentials")
 		}
-		tokens[tok] = identityReadOnly
+		identities[tok] = &Identity{ID: identityReadOnly, Name: identityReadOnly}
 	}
 
 	// OTel middleware wraps every MCP request in a span. Cheap when
@@ -478,17 +492,16 @@ func buildServeOpts(cfg Config) ([]mcp.ServeOption, error) {
 	)
 	opts = append(opts, mcp.WithMiddleware(otelMW))
 
-	if len(tokens) == 0 {
+	if len(identities) == 0 {
 		// Even without auth, install the tool-list filter so a
 		// clients.yml-only configuration (rare) is gated. Cheap
 		// no-op when no scope is registered.
 		opts = append(opts, mcp.WithMiddleware(toolListFilter()))
-		return opts, nil
+		return identities, opts, nil
 	}
-	mw := mcp.BearerAuth(tokens, mcp.WithAuthRealm("scry"))
-	opts = append(opts, mcp.WithMiddleware(mw))
+	opts = append(opts, mcp.WithMiddleware(bearerGate()))
 	opts = append(opts, mcp.WithMiddleware(toolListFilter()))
-	return opts, nil
+	return identities, opts, nil
 }
 
 // buildTLSConfig assembles a *tls.Config from the cert/key/CA
@@ -530,7 +543,7 @@ func buildTLSConfig(cfg Config) (*tls.Config, error) {
 }
 
 func serveHTTP(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Manager) error {
-	serveOpts, err := buildServeOpts(cfg)
+	identities, serveOpts, err := buildServeOpts(cfg)
 	if err != nil {
 		return err
 	}
@@ -542,6 +555,13 @@ func serveHTTP(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Ma
 		mcp.WithReadTimeout(30 * time.Second),
 		mcp.WithWriteTimeout(30 * time.Second),
 	}
+	if len(identities) > 0 {
+		// Derive caller identity from the Authorization header at the
+		// transport layer — the only place the header is reachable
+		// after mcp-go v1.19 removed in-library auth. bearerGate (in
+		// serveOpts) enforces it.
+		httpOpts = append(httpOpts, transport.WithRequestContextFn(identityContextFn(identities)))
+	}
 	if tlsCfg != nil {
 		httpOpts = append(httpOpts, mcp.WithTLSConfig(tlsCfg))
 	}
@@ -550,10 +570,11 @@ func serveHTTP(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Ma
 }
 
 func serveGRPC(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Manager) error {
-	serveOpts, err := buildServeOpts(cfg)
+	identities, serveOpts, err := buildServeOpts(cfg)
 	if err != nil {
 		return err
 	}
+	warnBearerUnsupported("grpc", identities)
 	tlsCfg, err := buildTLSConfig(cfg)
 	if err != nil {
 		return err
@@ -569,10 +590,11 @@ func serveGRPC(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Ma
 }
 
 func serveWebSocket(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runtime.Manager) error {
-	serveOpts, err := buildServeOpts(cfg)
+	identities, serveOpts, err := buildServeOpts(cfg)
 	if err != nil {
 		return err
 	}
+	warnBearerUnsupported("ws", identities)
 	tlsCfg, err := buildTLSConfig(cfg)
 	if err != nil {
 		return err
@@ -583,6 +605,24 @@ func serveWebSocket(ctx context.Context, srv *mcp.Server, cfg Config, mgr *runti
 	}
 	logBoot("ws", cfg, mgr)
 	return mcp.ServeWebSocketWithMiddleware(ctx, srv, cfg.ListenAddr, wsOpts, serveOpts...)
+}
+
+// warnBearerUnsupported flags the one configuration mcp-go v1.19's
+// auth removal left unservable: bearer tokens over grpc/ws. Only the
+// HTTP transport exposes a per-request hook (WithRequestContextFn) to
+// read the Authorization header, so identityContextFn can't run on
+// grpc/ws. bearerGate then sees a nil identity for every non-handshake
+// call and rejects it (fail-closed, never fail-open) — secure, but the
+// transport can't authenticate anyone. Operators needing bearer auth
+// must use --transport http.
+func warnBearerUnsupported(transport string, identities map[string]*Identity) {
+	if len(identities) == 0 {
+		return
+	}
+	obs.L.Warn().
+		Str("event", "boot.bearer_auth_unsupported").
+		Str("transport", transport).
+		Msg("serve-auth / clients.yml bearer tokens cannot be derived on grpc/ws (no per-request header hook after mcp-go v1.19); authenticated calls will be rejected — use --transport http")
 }
 
 // logBoot emits the structured boot event every transport shares.

@@ -4,9 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
-
 	"github.com/felixgeelhaar/scry/internal/auth"
 )
 
@@ -30,7 +27,7 @@ func TestTenantFromContextScopedToClient(t *testing.T) {
 		t.Fatalf("BuildScope: %v", err)
 	}
 	scopeRegistry = map[string]*auth.Scope{"tok": &scope}
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: "tok", Name: "acme-dashboard",
 	})
 	if got := TenantFromContext(ctx); got != "acme" {
@@ -42,7 +39,7 @@ func TestTenantFromContextFallsBackForUnmappedIdentity(t *testing.T) {
 	prev := scopeRegistry
 	t.Cleanup(func() { scopeRegistry = prev })
 	scopeRegistry = map[string]*auth.Scope{}
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: "unknown-token", Name: "unknown",
 	})
 	// Unknown identity → scopeFor returns nil → DefaultTenant.

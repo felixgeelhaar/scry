@@ -60,7 +60,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 			ev := obs.L.Ctx(ctx).Info().
 				Str("event", "execute").
 				Int("query_len", len(in.Query))
-			if id := mcp.IdentityFromContext(ctx); id != nil {
+			if id := identityFromContext(ctx); id != nil {
 				ev = ev.Str("client", id.Name)
 			}
 			// Attach tool-level attributes to the active span so
@@ -367,7 +367,7 @@ func registerQueryTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager, g *ga
 func sessionFromContext(ctx context.Context) gate.SessionID {
 	tenant := TenantFromContext(ctx)
 	base := "local"
-	if id := mcp.IdentityFromContext(ctx); id != nil && id.ID != "" {
+	if id := identityFromContext(ctx); id != nil && id.ID != "" {
 		base = id.ID
 	}
 	return gate.SessionID(tenant + ":" + base)
