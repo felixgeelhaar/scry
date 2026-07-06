@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
 
 	"github.com/felixgeelhaar/scry/internal/usage"
 )
@@ -25,7 +24,7 @@ func TestUsageStatsReturnsSnapshot(t *testing.T) {
 	if !ok {
 		t.Fatalf("usage_stats not registered")
 	}
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityAdmin, Name: identityAdmin,
 	})
 	out, err := tool.Execute(ctx, []byte(`{}`))
@@ -45,7 +44,7 @@ func TestUsageStatsTenantFilter(t *testing.T) {
 	srv := mcp.NewServer(mcp.ServerInfo{Name: "test", Version: "0"})
 	_ = registerUsageTools(srv, tr)
 	tool, _ := srv.GetTool("usage_stats")
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityAdmin, Name: identityAdmin,
 	})
 	out, _ := tool.Execute(ctx, []byte(`{"tenant":"acme"}`))
@@ -64,7 +63,7 @@ func TestUsageStatsAdminOnly(t *testing.T) {
 	srv := mcp.NewServer(mcp.ServerInfo{Name: "test", Version: "0"})
 	_ = registerUsageTools(srv, tr)
 	tool, _ := srv.GetTool("usage_stats")
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	out, _ := tool.Execute(ctx, []byte(`{}`))

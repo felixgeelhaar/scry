@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	mcp "go.klarlabs.de/mcp"
 	mcpmw "go.klarlabs.de/mcp/middleware"
 	"go.klarlabs.de/mcp/protocol"
 
@@ -38,7 +37,7 @@ func TestToolListFilterStripsToolsForReadOnlyIdentity(t *testing.T) {
 		"gate_status", "gate_chain",
 	}))
 
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	req := &protocol.Request{Method: protocol.MethodToolsList}
@@ -76,7 +75,7 @@ func TestToolListFilterPassesThroughForAdmin(t *testing.T) {
 	mw := toolListFilter()
 	full := []string{"schema_search", "query_execute", "auth_login"}
 	h := mw(stubHandler(full))
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityAdmin, Name: identityAdmin,
 	})
 	resp, err := h(ctx, &protocol.Request{Method: protocol.MethodToolsList})
@@ -106,7 +105,7 @@ func TestToolListFilterAppliesClientsYAMLScope(t *testing.T) {
 	h := mw(stubHandler([]string{
 		"schema_search", "schema_get", "query_execute", "list_servers", "gate_status",
 	}))
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: "dash-token", Name: "dashboard",
 	})
 	resp, err := h(ctx, &protocol.Request{Method: protocol.MethodToolsList})

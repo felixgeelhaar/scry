@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )
@@ -40,7 +39,7 @@ func newWebhookFixture(t *testing.T) (*runtime.Manager, *mcp.Server) {
 // adminCtx is a context carrying the admin identity so requireAdmin
 // returns "" for tool calls in the tests below.
 func adminCtx() context.Context {
-	return mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	return contextWithIdentity(context.Background(), &Identity{
 		ID: identityAdmin, Name: identityAdmin,
 	})
 }
@@ -82,7 +81,7 @@ func TestSchemaDiffSubscribeRejectsNonAdmin(t *testing.T) {
 	tool, _ := srv.GetTool("schema_diff_subscribe")
 	in, _ := json.Marshal(map[string]any{"url": "https://hooks.example.com/scry"})
 	// Read-only identity → requireAdmin returns permission_denied.
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	out, _ := tool.Execute(ctx, in)

@@ -13,7 +13,6 @@ import (
 
 	"go.klarlabs.de/bolt"
 	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
 
 	"github.com/felixgeelhaar/scry/internal/gate"
 	"github.com/felixgeelhaar/scry/internal/obs"
@@ -260,7 +259,7 @@ func TestQueryExecutePQNotFound(t *testing.T) {
 
 func TestQueryExecutePermissionDeniedReadOnly(t *testing.T) {
 	f := newFixture(t, nil, gate.Policy{}, Config{CostCeiling: 1000})
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	got, _ := f.call(ctx, map[string]any{"query": "{ ping }"})

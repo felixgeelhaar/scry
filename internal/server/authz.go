@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-
-	mcp "go.klarlabs.de/mcp"
 )
 
 // requireAdmin returns "" when the caller may invoke a destructive
@@ -25,7 +23,7 @@ import (
 // scope. No amount of retrying will fix it; the operator must hand
 // the agent a higher-scoped token.
 func requireAdmin(ctx context.Context, tool string) string {
-	id := mcp.IdentityFromContext(ctx)
+	id := identityFromContext(ctx)
 	if id == nil {
 		return ""
 	}

@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
-	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
 )
 
 func TestRequireAdminAllowsLocalCaller(t *testing.T) {
@@ -18,7 +15,7 @@ func TestRequireAdminAllowsLocalCaller(t *testing.T) {
 }
 
 func TestRequireAdminAllowsAdminIdentity(t *testing.T) {
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityAdmin, Name: identityAdmin,
 	})
 	if got := requireAdmin(ctx, "query_execute"); got != "" {
@@ -27,7 +24,7 @@ func TestRequireAdminAllowsAdminIdentity(t *testing.T) {
 }
 
 func TestRequireAdminDeniesReadOnlyIdentity(t *testing.T) {
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	got := requireAdmin(ctx, "query_execute")
@@ -50,7 +47,7 @@ func TestRequireAdminDeniesReadOnlyIdentity(t *testing.T) {
 }
 
 func TestRequireAdminDeniesUnknownIdentity(t *testing.T) {
-	ctx := mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	ctx := contextWithIdentity(context.Background(), &Identity{
 		ID: "random-third-party", Name: "stranger",
 	})
 	if got := requireAdmin(ctx, "auth_login"); got == "" {
@@ -66,7 +63,7 @@ func TestBuildServeOptsRejectsDuplicateTokens(t *testing.T) {
 		ServeAuthToken:         "literal-shared-secret",
 		ServeAuthTokenReadOnly: "literal-shared-secret",
 	}
-	if _, err := buildServeOpts(cfg); err == nil || !strings.Contains(err.Error(), "same token") {
+	if _, _, err := buildServeOpts(cfg); err == nil || !strings.Contains(err.Error(), "same token") {
 		t.Errorf("expected duplicate-token error, got %v", err)
 	}
 }
@@ -76,18 +73,18 @@ func TestBuildServeOptsAcceptsDistinctTokens(t *testing.T) {
 		ServeAuthToken:         "admin-secret",
 		ServeAuthTokenReadOnly: "readonly-secret",
 	}
-	opts, err := buildServeOpts(cfg)
+	_, opts, err := buildServeOpts(cfg)
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}
-	// 3 middleware entries: OTel + BearerAuth + tool-list filter.
+	// 3 middleware entries: OTel + bearerGate + tool-list filter.
 	if len(opts) != 3 {
-		t.Errorf("expected 3 middleware ServeOptions (OTel + BearerAuth + tool filter), got %d", len(opts))
+		t.Errorf("expected 3 middleware ServeOptions (OTel + bearerGate + tool filter), got %d", len(opts))
 	}
 }
 
 func TestBuildServeOptsNoTokensReturnsOTelOnly(t *testing.T) {
-	opts, err := buildServeOpts(Config{})
+	_, opts, err := buildServeOpts(Config{})
 	if err != nil {
 		t.Fatalf("build: %v", err)
 	}

@@ -7,9 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	mcp "go.klarlabs.de/mcp"
-	mcpmw "go.klarlabs.de/mcp/middleware"
-
 	"github.com/felixgeelhaar/scry/internal/auth"
 	"github.com/felixgeelhaar/scry/internal/gate"
 )
@@ -31,7 +28,7 @@ func withDenyScope(t *testing.T, denyPatterns []string) context.Context {
 	prev := scopeRegistry
 	t.Cleanup(func() { scopeRegistry = prev })
 	scopeRegistry = map[string]*auth.Scope{"limited-token": &scope}
-	return mcp.ContextWithIdentity(context.Background(), &mcpmw.Identity{
+	return contextWithIdentity(context.Background(), &Identity{
 		ID: "limited-token", Name: "limited",
 	})
 }
