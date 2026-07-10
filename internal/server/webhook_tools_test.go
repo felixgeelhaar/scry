@@ -100,7 +100,7 @@ func TestSchemaWebhooksListOmitsSecret(t *testing.T) {
 
 	list, _ := srv.GetTool("schema_webhooks_list")
 	out, _ := list.Execute(adminCtx(), mustJSON(map[string]any{}))
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	if strings.Contains(text, `"secret"`) {
 		t.Errorf("List response must not expose secret; got %q", text)
 	}

@@ -2,12 +2,36 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 
 	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/gate"
 )
+
+// GateStatus is the structured output of gate_status: the caller's
+// session budget + audit-chain counters.
+type GateStatus struct {
+	Session              string `json:"session"`
+	Writes               int    `json:"writes"`
+	CumulativeComplexity int    `json:"cumulative_complexity"`
+	ChainLength          int    `json:"chain_length"`
+}
+
+// GateChainResult is the structured output of gate_chain: the audit
+// evidence chain plus optional verification + truncation metadata.
+// Verified/FirstBadIndex/VerifyError are populated only when the
+// caller requests verification; Truncated/Returned only when a limit
+// trims the returned slice.
+type GateChainResult struct {
+	Session       string          `json:"session"`
+	ChainLength   int             `json:"chain_length"`
+	Verified      *bool           `json:"verified,omitempty"`
+	FirstBadIndex *int            `json:"first_bad_index,omitempty"`
+	VerifyError   string          `json:"verify_error,omitempty"`
+	Truncated     bool            `json:"truncated,omitempty"`
+	Returned      int             `json:"returned,omitempty"`
+	Records       []gate.Evidence `json:"records"`
+}
 
 // registerGateTools wires gate_status, the audit + budget read tool.
 // Agents call it to see how much of their session budget remains
@@ -24,16 +48,16 @@ func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 	type Empty struct{}
 	srv.Tool("gate_status").
 		Description(descGateStatus).
-		Handler(func(ctx context.Context, _ Empty) (string, error) {
+		OutputSchema(GateStatus{}).
+		Handler(func(ctx context.Context, _ Empty) (GateStatus, error) {
 			session := sessionFromContext(ctx)
 			stats := g.Stats(session)
-			enc, _ := json.MarshalIndent(map[string]any{
-				"session":               string(session),
-				"writes":                stats.Writes,
-				"cumulative_complexity": stats.Complexity,
-				"chain_length":          stats.ChainLen,
-			}, "", "  ")
-			return string(enc), nil
+			return GateStatus{
+				Session:              string(session),
+				Writes:               stats.Writes,
+				CumulativeComplexity: stats.Complexity,
+				ChainLength:          stats.ChainLen,
+			}, nil
 		})
 
 	type ChainInput struct {
@@ -42,7 +66,8 @@ func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 	}
 	srv.Tool("gate_chain").
 		Description(descGateChain).
-		Handler(func(ctx context.Context, in ChainInput) (string, error) {
+		OutputSchema(GateChainResult{}).
+		Handler(func(ctx context.Context, in ChainInput) (GateChainResult, error) {
 			session := sessionFromContext(ctx)
 			chain := g.Chain(session)
 
@@ -53,30 +78,32 @@ func registerGateTools(srv *mcp.Server, g *gate.Gate) error {
 			// tamper claim need the whole chain — the limit
 			// only affects what the agent gets in its context
 			// window.
-			result := map[string]any{
-				"session":      string(session),
-				"chain_length": len(chain),
+			result := GateChainResult{
+				Session:     string(session),
+				ChainLength: len(chain),
 			}
 			if in.Verify {
 				bad, err := gate.VerifyChain(chain)
 				if err != nil {
-					result["verified"] = false
-					result["first_bad_index"] = bad
-					result["verify_error"] = err.Error()
+					verified := false
+					badIdx := bad
+					result.Verified = &verified
+					result.FirstBadIndex = &badIdx
+					result.VerifyError = err.Error()
 				} else {
-					result["verified"] = true
+					verified := true
+					result.Verified = &verified
 				}
 			}
 
 			out := chain
 			if in.Limit > 0 && len(chain) > in.Limit {
 				out = chain[len(chain)-in.Limit:]
-				result["truncated"] = true
-				result["returned"] = len(out)
+				result.Truncated = true
+				result.Returned = len(out)
 			}
-			result["records"] = out
-			enc, _ := json.MarshalIndent(result, "", "  ")
-			return string(enc), nil
+			result.Records = out
+			return result, nil
 		})
 	return nil
 }

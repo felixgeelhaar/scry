@@ -31,7 +31,7 @@ func TestUsageStatsReturnsSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tool: %v", err)
 	}
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	if !strings.Contains(text, "acme") || !strings.Contains(text, "query_execute") {
 		t.Errorf("snapshot missing tenant or tool name: %q", text)
 	}
@@ -48,7 +48,7 @@ func TestUsageStatsTenantFilter(t *testing.T) {
 		ID: identityAdmin, Name: identityAdmin,
 	})
 	out, _ := tool.Execute(ctx, []byte(`{"tenant":"acme"}`))
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	if !strings.Contains(text, "acme") {
 		t.Errorf("acme cell should appear, got %q", text)
 	}
@@ -67,7 +67,7 @@ func TestUsageStatsAdminOnly(t *testing.T) {
 		ID: identityReadOnly, Name: identityReadOnly,
 	})
 	out, _ := tool.Execute(ctx, []byte(`{}`))
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	var got map[string]any
 	_ = json.Unmarshal([]byte(text), &got)
 	if got["error"] != "permission_denied" {
