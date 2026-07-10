@@ -4,18 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"time"
 
 	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )
 
+// webhookInfo is one registered receiver in a schema_webhooks_list result. Its
+// JSON keys match the lowercase snake_case shape schema_diff_subscribe returns.
+// The registration secret is intentionally omitted — it is returned exactly
+// once, by schema_diff_subscribe.
+type webhookInfo struct {
+	ID        int64     `json:"id"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // WebhooksListResult is the structured output of schema_webhooks_list:
 // the registered diff-webhook receivers for one server. Secrets are
 // never included (only schema_diff_subscribe returns them, once).
 type WebhooksListResult struct {
-	Server   string            `json:"server"`
-	Webhooks []runtime.Webhook `json:"webhooks"`
+	Server   string        `json:"server"`
+	Webhooks []webhookInfo `json:"webhooks"`
 }
 
 // registerWebhookTools wires schema_diff_subscribe + schema_webhooks_list
@@ -86,7 +97,11 @@ func registerWebhookTools(srv *mcp.Server, mgr *runtime.Manager) error {
 			if err != nil {
 				return renderError("list_failed", err.Error()), nil
 			}
-			return WebhooksListResult{Server: entry.Name, Webhooks: rows}, nil
+			infos := make([]webhookInfo, 0, len(rows))
+			for _, w := range rows {
+				infos = append(infos, webhookInfo{ID: w.ID, URL: w.URL, CreatedAt: w.CreatedAt})
+			}
+			return WebhooksListResult{Server: entry.Name, Webhooks: infos}, nil
 		})
 
 	type RemoveInput struct {

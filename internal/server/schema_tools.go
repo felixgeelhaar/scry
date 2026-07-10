@@ -26,13 +26,32 @@ import (
 // returns an unknown_server envelope listing the valid options so
 // the agent can pick.
 //
+// neighborEdge is one type-reference edge in a schema_neighbors result, with
+// lowercase JSON keys. schema.Edge itself carries no JSON tags (it would
+// serialize as Src/Dst/Field/Kind), so it is projected through this DTO to keep
+// the tool's output idiomatic and consistent with the other tools.
+type neighborEdge struct {
+	Src   string `json:"src"`
+	Dst   string `json:"dst"`
+	Field string `json:"field,omitempty"`
+	Kind  string `json:"kind"`
+}
+
+func toNeighborEdges(edges []schema.Edge) []neighborEdge {
+	out := make([]neighborEdge, 0, len(edges))
+	for _, e := range edges {
+		out = append(out, neighborEdge{Src: e.Src, Dst: e.Dst, Field: e.Field, Kind: e.Kind})
+	}
+	return out
+}
+
 // NeighborsResult is the structured output of schema_neighbors: the
 // incoming + outgoing type-reference edges for a named type.
 type NeighborsResult struct {
-	Type     string        `json:"type"`
-	Server   string        `json:"server"`
-	Incoming []schema.Edge `json:"incoming"`
-	Outgoing []schema.Edge `json:"outgoing"`
+	Type     string         `json:"type"`
+	Server   string         `json:"server"`
+	Incoming []neighborEdge `json:"incoming"`
+	Outgoing []neighborEdge `json:"outgoing"`
 }
 
 //nolint:unparam // symmetry with other register*Tools — future wiring may fail
@@ -132,8 +151,8 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 			return NeighborsResult{
 				Type:     in.Name,
 				Server:   entry.Name,
-				Incoming: set.Incoming,
-				Outgoing: set.Outgoing,
+				Incoming: toNeighborEdges(set.Incoming),
+				Outgoing: toNeighborEdges(set.Outgoing),
 			}, nil
 		})
 
