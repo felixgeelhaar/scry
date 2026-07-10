@@ -2,6 +2,29 @@ apiVersion: v1
 entries:
   scry:
   - apiVersion: v2
+    appVersion: 0.8.0
+    created: "2026-07-10T20:09:29.018630316Z"
+    description: Searchable GraphQL bridge for AI agents — MCP server with FTS5-ranked
+      schema index, audit chain, persisted queries, and multi-transport support (stdio/http/grpc/ws).
+    digest: 331665b4708435e78cf747068adabcbf81f28f14a192b3d9ab827c502202728b
+    home: https://github.com/felixgeelhaar/scry
+    icon: https://raw.githubusercontent.com/felixgeelhaar/scry/main/docs/logo.png
+    keywords:
+    - graphql
+    - mcp
+    - ai-agent
+    - search
+    maintainers:
+    - name: felixgeelhaar
+      url: https://github.com/felixgeelhaar
+    name: scry
+    sources:
+    - https://github.com/felixgeelhaar/scry
+    type: application
+    urls:
+    - https://github.com/felixgeelhaar/scry/releases/download/scry-0.8.0/scry-0.8.0.tgz
+    version: 0.8.0
+  - apiVersion: v2
     appVersion: 0.7.2
     created: "2026-05-19T18:37:40.831572389Z"
     description: Searchable GraphQL bridge for AI agents — MCP server with FTS5-ranked
@@ -24,4 +47,4 @@ entries:
     urls:
     - https://github.com/felixgeelhaar/scry/releases/download/scry-0.7.2/scry-0.7.2.tgz
     version: 0.7.2
-generated: "2026-05-19T18:37:40.831576751Z"
+generated: "2026-07-10T20:09:29.018642956Z"
