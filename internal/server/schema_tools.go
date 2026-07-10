@@ -26,6 +26,15 @@ import (
 // returns an unknown_server envelope listing the valid options so
 // the agent can pick.
 //
+// NeighborsResult is the structured output of schema_neighbors: the
+// incoming + outgoing type-reference edges for a named type.
+type NeighborsResult struct {
+	Type     string        `json:"type"`
+	Server   string        `json:"server"`
+	Incoming []schema.Edge `json:"incoming"`
+	Outgoing []schema.Edge `json:"outgoing"`
+}
+
 //nolint:unparam // symmetry with other register*Tools — future wiring may fail
 func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) error {
 	_ = cfg
@@ -106,7 +115,8 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 	}
 	srv.Tool("schema_neighbors").
 		Description(descSchemaNeighbors).
-		Handler(func(ctx context.Context, in NeighborsInput) (string, error) {
+		OutputSchema(NeighborsResult{}).
+		Handler(func(ctx context.Context, in NeighborsInput) (any, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
 				return errResp, nil
@@ -119,13 +129,12 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 				return renderError("not_found",
 					fmt.Sprintf("no edges recorded for %q on server %q — confirm the name via schema_search or schema_get", in.Name, entry.Name)), nil
 			}
-			enc, _ := json.MarshalIndent(map[string]any{
-				"type":     in.Name,
-				"server":   entry.Name,
-				"incoming": set.Incoming,
-				"outgoing": set.Outgoing,
-			}, "", "  ")
-			return string(enc), nil
+			return NeighborsResult{
+				Type:     in.Name,
+				Server:   entry.Name,
+				Incoming: set.Incoming,
+				Outgoing: set.Outgoing,
+			}, nil
 		})
 
 	type DiffInput struct {
@@ -152,7 +161,8 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 	}
 	srv.Tool("query_cost").
 		Description(descQueryCost).
-		Handler(func(ctx context.Context, in CostInput) (string, error) {
+		OutputSchema(schema.CostReport{}).
+		Handler(func(ctx context.Context, in CostInput) (any, error) {
 			entry, errResp := resolveServer(in.Server, mgr)
 			if errResp != "" {
 				return errResp, nil
@@ -163,7 +173,15 @@ func registerSchemaTools(srv *mcp.Server, cfg Config, mgr *runtime.Manager) erro
 					"schema index has no SDL — wait for the next refresh or restart with --refresh"), nil
 			}
 			rpt, vErrs := schema.EstimateCost(sdl, in.Query)
-			return renderCost(rpt, vErrs), nil
+			if len(vErrs) > 0 {
+				// Validation failed: surface the errors as an
+				// {error, hint, errors} envelope (text only) so the
+				// caller doesn't need a separate query_validate call.
+				return renderCostErrors(vErrs), nil
+			}
+			// Happy path: the typed CostReport is promoted to
+			// structuredContent via the declared output schema.
+			return rpt, nil
 		})
 
 	return nil
@@ -278,18 +296,16 @@ func renderValidation(errs []schema.ValidationError) string {
 	return string(enc)
 }
 
-// renderCost returns the cost report plus, if validation failed, the
-// errors so the caller doesn't need to call query_validate
-// separately.
-func renderCost(rpt schema.CostReport, errs []schema.ValidationError) string {
-	if len(errs) > 0 {
-		enc, _ := json.Marshal(map[string]any{
-			"error":  "invalid_query",
-			"hint":   "fix the validation errors then re-run query_cost",
-			"errors": errs,
-		})
-		return string(enc)
-	}
-	enc, _ := json.Marshal(rpt)
+// renderCostErrors returns the {error, hint, errors} envelope for a
+// query that failed static validation, so the caller doesn't need to
+// call query_validate separately. The happy-path CostReport is
+// returned as a typed struct (not through this helper) so it can be
+// promoted to structuredContent.
+func renderCostErrors(errs []schema.ValidationError) string {
+	enc, _ := json.Marshal(map[string]any{
+		"error":  "invalid_query",
+		"hint":   "fix the validation errors then re-run query_cost",
+		"errors": errs,
+	})
 	return string(enc)
 }

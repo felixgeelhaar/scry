@@ -2,12 +2,19 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 
 	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/usage"
 )
+
+// UsageStatsResult is the structured output of usage_stats: the
+// per-tenant/session metering snapshots, optionally filtered to one
+// tenant.
+type UsageStatsResult struct {
+	Tenant  string           `json:"tenant"`
+	Records []usage.Snapshot `json:"records"`
+}
 
 // registerUsageTools wires the usage_stats admin-facing tool. The
 // process-level Tracker is injected — scry's Run() builds one at
@@ -28,16 +35,13 @@ func registerUsageTools(srv *mcp.Server, tracker *usage.Tracker) error {
 	}
 	srv.Tool("usage_stats").
 		Description(descUsageStats).
-		Handler(func(ctx context.Context, in StatsInput) (string, error) {
+		OutputSchema(UsageStatsResult{}).
+		Handler(func(ctx context.Context, in StatsInput) (any, error) {
 			if denied := requireAdmin(ctx, "usage_stats"); denied != "" {
 				return denied, nil
 			}
 			snap := tracker.Snapshot(in.Tenant)
-			enc, _ := json.MarshalIndent(map[string]any{
-				"tenant":  in.Tenant,
-				"records": snap,
-			}, "", "  ")
-			return string(enc), nil
+			return UsageStatsResult{Tenant: in.Tenant, Records: snap}, nil
 		})
 	return nil
 }

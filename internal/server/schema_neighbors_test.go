@@ -38,7 +38,7 @@ func TestSchemaNeighborsIncomingOutgoing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tool: %v", err)
 	}
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	var got map[string]any
 	_ = json.Unmarshal([]byte(text), &got)
 
@@ -60,7 +60,7 @@ func TestSchemaNeighborsNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tool: %v", err)
 	}
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	var got map[string]any
 	_ = json.Unmarshal([]byte(text), &got)
 	if got["error"] != "not_found" {
@@ -81,7 +81,7 @@ func TestSchemaNeighborsRespectsLimit(t *testing.T) {
 	tool, _ := f.srv.GetTool("schema_neighbors")
 	in, _ := json.Marshal(map[string]any{"name": "Hub", "limit": 9999})
 	out, _ := tool.Execute(context.Background(), in)
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	var got map[string]any
 	_ = json.Unmarshal([]byte(text), &got)
 	outgoing := got["outgoing"].([]any)

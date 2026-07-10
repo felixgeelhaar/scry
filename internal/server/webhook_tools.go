@@ -10,6 +10,14 @@ import (
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )
 
+// WebhooksListResult is the structured output of schema_webhooks_list:
+// the registered diff-webhook receivers for one server. Secrets are
+// never included (only schema_diff_subscribe returns them, once).
+type WebhooksListResult struct {
+	Server   string            `json:"server"`
+	Webhooks []runtime.Webhook `json:"webhooks"`
+}
+
 // registerWebhookTools wires schema_diff_subscribe + schema_webhooks_list
 // + schema_webhooks_remove. All admin-only — operators register
 // outbound HTTP receivers that scry POSTs to on every non-empty
@@ -61,7 +69,8 @@ func registerWebhookTools(srv *mcp.Server, mgr *runtime.Manager) error {
 	}
 	srv.Tool("schema_webhooks_list").
 		Description(descSchemaWebhooksList).
-		Handler(func(ctx context.Context, in ListInput) (string, error) {
+		OutputSchema(WebhooksListResult{}).
+		Handler(func(ctx context.Context, in ListInput) (any, error) {
 			if denied := requireAdmin(ctx, "schema_webhooks_list"); denied != "" {
 				return denied, nil
 			}
@@ -77,11 +86,7 @@ func registerWebhookTools(srv *mcp.Server, mgr *runtime.Manager) error {
 			if err != nil {
 				return renderError("list_failed", err.Error()), nil
 			}
-			enc, _ := json.MarshalIndent(map[string]any{
-				"server":   entry.Name,
-				"webhooks": rows,
-			}, "", "  ")
-			return string(enc), nil
+			return WebhooksListResult{Server: entry.Name, Webhooks: rows}, nil
 		})
 
 	type RemoveInput struct {

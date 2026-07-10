@@ -6,6 +6,20 @@ project uses [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Structured tool output** — the read/data tools now advertise an
+  `outputSchema` and return typed structs, so mcp-go emits both the
+  JSON text block and a machine-typed `structuredContent` field that
+  strict MCP clients can consume without re-parsing. Covers
+  `list_servers`, `gate_status`, `gate_chain`, `query_cost`,
+  `schema_neighbors`, `usage_stats`, `auth_status`, and
+  `schema_webhooks_list`. Error/validation responses stay text-only
+  `{error, hint}` envelopes; opaque passthroughs (`query_execute`,
+  `schema_diff`), SDL/markdown renderers (`schema_get`,
+  `schema_search`), status flags (`query_validate`), and mutations are
+  unchanged.
+
 ## 0.7.1 - 2026-05-19
 
 Bug-fix follow-up to v0.7.0's release pipeline. Two issues surfaced

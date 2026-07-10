@@ -2,12 +2,23 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 
 	mcp "go.klarlabs.de/mcp"
 
 	"github.com/felixgeelhaar/scry/internal/runtime"
 )
+
+// ServerRef identifies one configured upstream in list_servers output.
+type ServerRef struct {
+	Name     string `json:"name"`
+	Upstream string `json:"upstream"`
+}
+
+// ListServersResult is the structured output of list_servers: the set
+// of configured upstreams an agent can target.
+type ListServersResult struct {
+	Servers []ServerRef `json:"servers"`
+}
 
 // registerRuntimeTools wires the meta tools that describe what's
 // configured at runtime — distinct from auth_status (which reports
@@ -22,21 +33,18 @@ func registerRuntimeTools(srv *mcp.Server, mgr *runtime.Manager) error {
 	type Empty struct{}
 	srv.Tool("list_servers").
 		Description(descListServers).
-		Handler(func(_ context.Context, _ Empty) (string, error) {
+		OutputSchema(ListServersResult{}).
+		Handler(func(_ context.Context, _ Empty) (ListServersResult, error) {
 			names := mgr.List()
-			out := make([]map[string]string, 0, len(names))
+			out := make([]ServerRef, 0, len(names))
 			for _, n := range names {
 				e, err := mgr.Get(n)
 				if err != nil {
 					continue
 				}
-				out = append(out, map[string]string{
-					"name":     e.Name,
-					"upstream": e.Upstream,
-				})
+				out = append(out, ServerRef{Name: e.Name, Upstream: e.Upstream})
 			}
-			enc, _ := json.MarshalIndent(map[string]any{"servers": out}, "", "  ")
-			return string(enc), nil
+			return ListServersResult{Servers: out}, nil
 		})
 	return nil
 }

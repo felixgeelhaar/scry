@@ -71,13 +71,26 @@ func (f *schemaToolsFixture) call(name string, args map[string]any) (map[string]
 	if err != nil {
 		f.t.Fatalf("%s: %v", name, err)
 	}
-	text, _ := out.(string)
+	text := toolResultJSON(out)
 	if text == "" {
-		f.t.Fatalf("%s returned non-string: %+v", name, out)
+		f.t.Fatalf("%s returned empty result: %+v", name, out)
 	}
 	var decoded map[string]any
 	_ = json.Unmarshal([]byte(text), &decoded)
 	return decoded, text
+}
+
+// toolResultJSON normalizes a tool.Execute return value to its JSON
+// text form. Handlers that advertise an output schema now return typed
+// structs on the happy path (the framework promotes them to
+// structuredContent); handlers still return string envelopes for error
+// and prose responses. Tests decode both shapes uniformly.
+func toolResultJSON(out any) string {
+	if s, ok := out.(string); ok {
+		return s
+	}
+	b, _ := json.Marshal(out)
+	return string(b)
 }
 
 func defaultSchemaUpstream(w http.ResponseWriter, r *http.Request) {

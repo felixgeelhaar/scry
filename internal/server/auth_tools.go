@@ -11,6 +11,12 @@ import (
 	"github.com/felixgeelhaar/scry/internal/auth"
 )
 
+// AuthStatusResult is the structured output of auth_status: one
+// credential-health entry per configured server (no secrets).
+type AuthStatusResult struct {
+	Servers []auth.StatusEntry `json:"servers"`
+}
+
 // registerAuthTools exposes two read-only credential tools to the
 // agent:
 //
@@ -34,7 +40,8 @@ func registerAuthTools(srv *mcp.Server) error {
 	}
 	srv.Tool("auth_status").
 		Description(descAuthStatus).
-		Handler(func(_ context.Context, in StatusInput) (string, error) {
+		OutputSchema(AuthStatusResult{}).
+		Handler(func(_ context.Context, in StatusInput) (any, error) {
 			s, err := loadServers()
 			if err != nil {
 				return renderAuthError("auth_store_unavailable", err.Error()), nil
@@ -53,8 +60,7 @@ func registerAuthTools(srv *mcp.Server) error {
 						fmt.Sprintf("server %q is not registered — list candidates with auth_status", in.Server)), nil
 				}
 			}
-			enc, _ := json.MarshalIndent(map[string]any{"servers": entries}, "", "  ")
-			return string(enc), nil
+			return AuthStatusResult{Servers: entries}, nil
 		})
 
 	type LoginInput struct {
