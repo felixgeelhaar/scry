@@ -9,7 +9,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.5.33
 	go.klarlabs.de/bolt v1.5.2
 	go.klarlabs.de/fortify v1.8.1
-	go.klarlabs.de/mcp v1.21.0
+	go.klarlabs.de/mcp v1.22.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0
