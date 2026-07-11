@@ -1,0 +1,28 @@
+# warden — local git gate for scry (Go). Sole hook manager; warden's native
+# hooks live in .git/hooks and auto-fetch the binary if missing, so a fresh
+# clone is gated without any extra devDependency.
+#
+# pre_commit stays fast (formatting + vet). pre_push runs the FULL gate the
+# GitHub CI runs (lint + race tests + build), so nothing leaves the machine
+# that CI would reject. Commands mirror .github/workflows/ci.yml and
+# .golangci.yml so local and CI verdicts match.
+extends: ''
+agent: auto
+hooks:
+  pre_commit: true
+  pre_push: true
+commands:
+  gofmt: gofmt -l .
+  govet: go vet ./...
+  # .golangci.yml (v2) is committed, so lint is a real gate. CI runs the same
+  # linter set at golangci-lint v2.11.4 with a 5m timeout.
+  golangcilint: golangci-lint run --timeout=5m
+  # -race matches the correctness bar; CI runs the suite with -race + coverage.
+  gotest: go test -race ./...
+  gobuild: go build ./...
+steps:
+  pre_commit: [gofmt, govet]
+  pre_push: [rebase, gofmt, govet, golangcilint, gotest, gobuild]
+risk: {diff_lines_high: 400, files_touched_high: 15}
+pr: {enabled: false}
+rules: []
