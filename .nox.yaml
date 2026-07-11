@@ -48,6 +48,20 @@ scan:
     - deploy/k8s/*.yaml
     - charts/scry/values.yaml
     - charts/scry/templates/secret.yaml
+    # Vendored GitHub GraphQL v4 public schema used as a benchmark
+    # fixture. Its ~600 GraphQL type/field names trip the generic
+    # secret detector; it is a third-party SDL document, not scry
+    # source or credentials. Surfaced net-new under nox 1.7.1's
+    # deeper scan.
+    # Classification: False Positive
+    # Last reviewed: 2026-07-11
+    - docs/benchmarks/github-v4/fixtures/github-v4.sdl
+    # Roady's append-only machine-generated event log. Same tool-state
+    # class as the .nox/ and ai.inventory.json waivers above — not
+    # human-authored source.
+    # Classification: Acceptable Pattern
+    # Last reviewed: 2026-07-11
+    - .roady/events.jsonl
 
 plugins:
   # Auto-install on `nox scan` unless --no-auto-install is set. CI

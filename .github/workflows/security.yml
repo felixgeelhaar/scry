@@ -33,7 +33,7 @@ jobs:
         env:
           # Pinned. Bump deliberately after reviewing release notes at
           # https://github.com/nox-hq/nox/releases.
-          NOX_VERSION: "0.9.5"
+          NOX_VERSION: "1.7.1"
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -sSfL "https://github.com/nox-hq/nox/releases/download/v${NOX_VERSION}/nox_${NOX_VERSION}_linux_amd64.tar.gz" \
